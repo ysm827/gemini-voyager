@@ -45,16 +45,6 @@ Conventional Commits: `<type>(<scope>): <imperative summary>`
 - Summary: lowercase, imperative, no trailing period
 - If the commit relates to a GitHub issue or discussion, include `Closes #xxx` or `Fixes #xxx` in the commit **body**
 
-## Version Bump & Release
-
-```bash
-bun run bump    # auto-updates package.json, manifest.json, manifest.dev.json
-```
-
-**Changelog required:** after bumping, ensure `src/pages/content/changelog/notes/` has a `.md` file for the new version before pushing. Do not skip this step.
-
-Then: commit `chore: bump to v{VERSION}` → `git tag v{VERSION}` → `git push && git push --tags`
-
 ## Design Principles
 
 1. **KISS.** Implement the minimum interpretation of requirements. Never combine orthogonal features (e.g., "fade" and "thin") without explicit confirmation.
@@ -62,6 +52,7 @@ Then: commit `chore: bump to v{VERSION}` → `git tag v{VERSION}` → `git push 
 3. **Data structures first.** Eliminate special cases by redesigning data, not adding branches.
 4. **For visual/CSS changes:** describe expected rendering, verify alignment/centering/spacing in both light and dark themes, and check external resources (icon fonts, CDN links).
 5. **For ambiguous requirements:** implement the minimal version first. Ask before adding scope.
+6. **Grep for a sibling precedent before adding a new primitive.** Body-level popover, global listener, CSS overlay — there is almost always an existing `gv-pm-*` analogue (e.g., `.gv-pm-confirm` for body-appended popovers) already wired into close-outside handlers, teardown, and theme overrides. Copy its integration points; don't reinvent and miss one.
 
 ## Architecture
 

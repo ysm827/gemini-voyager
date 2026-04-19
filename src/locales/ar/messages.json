@@ -219,6 +219,18 @@
     "message": "التبديل إلى الوضع الفاتح",
     "description": "Theme toggle tooltip - switch to light"
   },
+  "pm_view_compact": {
+    "message": "التبديل إلى القائمة المدمجة",
+    "description": "View-mode toggle tooltip - switch from comfortable cards to compact single-line rows"
+  },
+  "pm_view_comfortable": {
+    "message": "التبديل إلى العرض المريح",
+    "description": "View-mode toggle tooltip - switch from compact rows to comfortable cards with markdown preview"
+  },
+  "pm_name_placeholder": {
+    "message": "الاسم (اختياري)",
+    "description": "Placeholder for the optional prompt name/label input used as the compact-mode headline"
+  },
   "pm_theme_dark": {
     "message": "التبديل إلى الوضع الداكن",
     "description": "Theme toggle tooltip - switch to dark"
@@ -1438,6 +1450,14 @@
   "changelog_rate_chrome_cta": {
     "message": "تقييم الآن",
     "description": "Chrome Web Store rating CTA button text"
+  },
+  "changelog_rate_edge": {
+    "message": "هل أعجبك Voyager؟ تقييمك على متجر إضافات Edge يساعد الآخرين على اكتشافه!",
+    "description": "Edge Add-ons store rating prompt in changelog modal"
+  },
+  "changelog_rate_edge_cta": {
+    "message": "تقييم الآن",
+    "description": "Edge Add-ons store rating CTA button text"
   },
   "changelog_badge_mode": {
     "message": "الإشعار عبر شارة NEW على الزر العائم بدلاً من هذه النافذة",
