@@ -463,6 +463,30 @@
     "message": "从云端同步",
     "description": "云同步按钮提示"
   },
+  "folder_manage_in_library": {
+    "message": "到 Library 管理",
+    "description": "AI Studio 侧栏按钮，跳转到 /library 以拖拽管理对话"
+  },
+  "aistudio_hide_archived_nudge_title": {
+    "message": "整理你的 AI Studio Library",
+    "description": "邀请用户在 AI Studio 隐藏已归档对话的引导标题"
+  },
+  "aistudio_hide_archived_nudge_body": {
+    "message": "Voyager 可以把已经归入文件夹的对话从 Library 表格里隐藏，只留未归类的对话。",
+    "description": "引导卡说明 AI Studio 隐藏已归档功能"
+  },
+  "aistudio_hide_archived_nudge_enable": {
+    "message": "立即开启",
+    "description": "AI Studio 隐藏已归档引导卡的主按钮"
+  },
+  "aistudio_hide_archived_nudge_dismiss": {
+    "message": "暂不开启",
+    "description": "AI Studio 隐藏已归档引导卡的次按钮"
+  },
+  "aistudio_hide_archived_nudge_footnote": {
+    "message": "仅对 AI Studio 生效 —— Gemini 的偏好独立保存。",
+    "description": "AI Studio 隐藏已归档引导卡的脚注，说明配置分平台保存"
+  },
   "folder_import": {
     "message": "导入文件夹",
     "description": "导入文件夹按钮提示"
@@ -1103,6 +1127,14 @@
     "message": "即使输入框包含文字或附件也允许折叠",
     "description": "解释非空折叠功能的提示文本"
   },
+  "inputVimMode": {
+    "message": "输入 Vim Mode",
+    "description": "Toggle label for focusing and leaving the question input with Vim-style keys"
+  },
+  "inputVimModeHint": {
+    "message": "在提问框内用 i/Escape 切换插入/普通模式，用 v 选择，并支持 Vim 移动",
+    "description": "Hint for input Vim mode shortcuts"
+  },
   "ctrlEnterSend": {
     "message": "{modifier}+Enter 发送",
     "description": "Modifier+Enter 发送开关标签。{modifier} 在 macOS 上替换为 ⌘，其他平台替换为 Ctrl"
@@ -1296,7 +1328,7 @@
     "description": "完全隐藏侧边栏开关标签"
   },
   "sidebarFullHideHint": {
-    "message": "收起时完全隐藏侧边栏，鼠标移到左边缘唤出",
+    "message": "收起时完全隐藏侧边栏",
     "description": "完全隐藏侧边栏功能提示"
   },
   "folderSpacing": {

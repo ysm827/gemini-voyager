@@ -5344,6 +5344,53 @@ body.dark-theme .gv-folder-action-btn.gv-filter-active mat-icon,
   font-size: 14px;
 }
 
+.gv-aistudio .google-symbols[data-icon='library_books']::before {
+  content: '📚';
+  font-size: 14px;
+}
+
+/* Hide archived conversations in the AI Studio /library table when the feature is on.
+   The class is toggled per-row by AIStudioFolderManager.applyHideArchivedToLibraryTable. */
+.gv-aistudio-root tr.mat-mdc-row.gv-conversation-archived,
+.gv-aistudio-root tr[mat-row].gv-conversation-archived {
+  display: none !important;
+}
+
+/* AI Studio–scoped theming for the shared hide-archived nudge. The base class targets
+   Gemini's theme-host tokens, which don't resolve on AI Studio, so we re-color under
+   the aistudio variant to match the platform's always-dark surface. */
+.gv-hide-archived-nudge--aistudio {
+  color: var(--mat-sys-on-surface, #e3e3e3);
+  border-color: rgba(138, 180, 248, 0.3);
+  background: linear-gradient(135deg, rgba(138, 180, 248, 0.12) 0%, rgba(167, 139, 250, 0.09) 100%);
+}
+
+.gv-hide-archived-nudge--aistudio .gv-hide-archived-nudge__btn--primary {
+  background: rgba(138, 180, 248, 0.92);
+  color: #1a1c1e;
+  border-color: rgba(138, 180, 248, 0.92);
+}
+
+.gv-hide-archived-nudge--aistudio .gv-hide-archived-nudge__btn--secondary {
+  color: var(--mat-sys-on-surface-variant, #c4c7c5);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.gv-hide-archived-nudge--aistudio .gv-hide-archived-nudge__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* V2 left-nav layout: the folder panel sits between the nav items and the
+   native empty-space spacer. Let it flex-shrink gracefully without forcing a
+   fixed height so long folder lists can still scroll inside the nav. */
+.gv-aistudio.gv-aistudio-v2 {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 60%;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
 /* Import dialog */
 /* ── Folder Import Dialog ── */
 .gv-folder-import-dialog {
@@ -8207,4 +8254,167 @@ body.gv-rtl .gv-hide-archived-nudge {
 }
 body.gv-rtl .gv-hide-archived-nudge__actions {
   justify-content: flex-start;
+}
+
+.gv-input-vim-hud-mount {
+  position: relative;
+  overflow: visible;
+}
+
+.gv-input-vim-hud {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  z-index: 2;
+  display: inline-flex;
+  transform: translateY(-50%);
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-left: 0;
+  padding: 0 9px;
+  border: 1px solid rgba(60, 64, 67, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #3c4043;
+  font:
+    600 11px/1 Google Sans,
+    Roboto,
+    Arial,
+    sans-serif;
+  letter-spacing: 0;
+  vertical-align: middle;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.12);
+  pointer-events: none;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.gv-input-vim-hud[data-active='false'] {
+  opacity: 0.56;
+}
+
+.gv-input-vim-hud[data-mode='normal'] .gv-input-vim-hud-mode {
+  color: #0b8043;
+}
+
+.gv-input-vim-hud[data-mode='insert'] .gv-input-vim-hud-mode {
+  color: #1a73e8;
+}
+
+.gv-input-vim-hud[data-mode='visual'] .gv-input-vim-hud-mode {
+  color: #b06000;
+}
+
+.gv-input-vim-hud-buffer {
+  min-width: 12px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(60, 64, 67, 0.18);
+  color: #5f6368;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.gv-input-vim-mode-normal,
+.gv-input-vim-mode-visual {
+  caret-color: transparent !important;
+}
+
+.gv-input-vim-mode-insert {
+  caret-color: auto;
+}
+
+.gv-input-vim-cursor {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: none;
+  border-radius: 2px;
+  background: rgba(11, 128, 67, 0.72);
+  opacity: 0.94;
+  box-shadow: 0 0 0 rgba(11, 128, 67, 0);
+  mix-blend-mode: multiply;
+  transition:
+    background-color 70ms ease,
+    opacity 45ms ease,
+    box-shadow 70ms ease;
+  will-change: opacity;
+}
+
+.gv-input-vim-cursor-moving {
+  animation: gv-input-vim-cursor-flash 70ms ease-out;
+  box-shadow: 0 0 8px rgba(11, 128, 67, 0.24);
+}
+
+.gv-input-vim-cursor[data-mode='visual'] {
+  width: 2px !important;
+  background: rgba(176, 96, 0, 0.9);
+}
+
+.gv-input-vim-cursor[data-mode='visual'].gv-input-vim-cursor-moving {
+  box-shadow: 0 0 8px rgba(176, 96, 0, 0.24);
+}
+
+@keyframes gv-input-vim-cursor-flash {
+  0% {
+    opacity: 0.62;
+  }
+  100% {
+    opacity: 0.94;
+  }
+}
+
+.theme-host.dark-theme .gv-input-vim-hud,
+body.dark-theme .gv-input-vim-hud,
+html.dark .gv-input-vim-hud {
+  border-color: rgba(232, 234, 237, 0.16);
+  background: rgba(32, 33, 36, 0.9);
+  color: #e8eaed;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.theme-host.dark-theme .gv-input-vim-hud[data-mode='normal'] .gv-input-vim-hud-mode,
+body.dark-theme .gv-input-vim-hud[data-mode='normal'] .gv-input-vim-hud-mode,
+html.dark .gv-input-vim-hud[data-mode='normal'] .gv-input-vim-hud-mode {
+  color: #81c995;
+}
+
+.theme-host.dark-theme .gv-input-vim-hud[data-mode='insert'] .gv-input-vim-hud-mode,
+body.dark-theme .gv-input-vim-hud[data-mode='insert'] .gv-input-vim-hud-mode,
+html.dark .gv-input-vim-hud[data-mode='insert'] .gv-input-vim-hud-mode {
+  color: #8ab4f8;
+}
+
+.theme-host.dark-theme .gv-input-vim-hud[data-mode='visual'] .gv-input-vim-hud-mode,
+body.dark-theme .gv-input-vim-hud[data-mode='visual'] .gv-input-vim-hud-mode,
+html.dark .gv-input-vim-hud[data-mode='visual'] .gv-input-vim-hud-mode {
+  color: #fdd663;
+}
+
+.theme-host.dark-theme .gv-input-vim-hud-buffer,
+body.dark-theme .gv-input-vim-hud-buffer,
+html.dark .gv-input-vim-hud-buffer {
+  border-left-color: rgba(232, 234, 237, 0.16);
+  color: #bdc1c6;
+}
+
+.theme-host.dark-theme .gv-input-vim-cursor,
+body.dark-theme .gv-input-vim-cursor,
+html.dark .gv-input-vim-cursor {
+  background: rgba(129, 201, 149, 0.72);
+  mix-blend-mode: screen;
+}
+
+.theme-host.dark-theme .gv-input-vim-cursor-moving,
+body.dark-theme .gv-input-vim-cursor-moving,
+html.dark .gv-input-vim-cursor-moving {
+  box-shadow: 0 0 16px rgba(129, 201, 149, 0.36);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gv-input-vim-cursor {
+    transition: none;
+  }
+
+  .gv-input-vim-cursor-moving {
+    animation: none;
+  }
 }

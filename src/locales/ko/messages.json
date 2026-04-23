@@ -463,6 +463,30 @@
     "message": "클라우드에서 동기화",
     "description": "Cloud sync button tooltip"
   },
+  "folder_manage_in_library": {
+    "message": "라이브러리에서 관리",
+    "description": "Shortcut button shown in AI Studio sidebar to jump to /library for drag-and-drop conversation management"
+  },
+  "aistudio_hide_archived_nudge_title": {
+    "message": "AI Studio 라이브러리 정리",
+    "description": "Onboarding nudge title inviting the user to hide archived conversations from the AI Studio library table"
+  },
+  "aistudio_hide_archived_nudge_body": {
+    "message": "Voyager는 폴더에 정리한 대화를 라이브러리 목록에서 숨길 수 있어, 미분류 대화만 남길 수 있습니다.",
+    "description": "Onboarding nudge body explaining the hide-archived feature in AI Studio"
+  },
+  "aistudio_hide_archived_nudge_enable": {
+    "message": "활성화",
+    "description": "Primary button on the AI Studio hide-archived nudge"
+  },
+  "aistudio_hide_archived_nudge_dismiss": {
+    "message": "나중에",
+    "description": "Dismiss button on the AI Studio hide-archived nudge"
+  },
+  "aistudio_hide_archived_nudge_footnote": {
+    "message": "AI Studio에만 적용됩니다 — Gemini 설정은 별도로 저장됩니다.",
+    "description": "Footnote on the AI Studio hide-archived nudge noting the setting is scoped per platform"
+  },
   "folder_import": {
     "message": "폴더 가져오기",
     "description": "Import folders button tooltip"
@@ -1103,6 +1127,14 @@
     "message": "텍스트나 첨부 파일이 있어도 입력 영역을 접을 수 있습니다",
     "description": "Hint text explaining the collapse when not empty feature"
   },
+  "inputVimMode": {
+    "message": "입력 Vim 모드",
+    "description": "Toggle label for focusing and leaving the question input with Vim-style keys"
+  },
+  "inputVimModeHint": {
+    "message": "질문 입력창 안에서 i/Escape로 입력/일반 모드를 전환하고, v로 선택하며 Vim 이동을 사용합니다",
+    "description": "Hint for input Vim mode shortcuts"
+  },
   "ctrlEnterSend": {
     "message": "{modifier}+Enter 로 전송",
     "description": "Modifier+Enter to send toggle label. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
@@ -1296,7 +1328,7 @@
     "description": "Fully hide sidebar toggle label"
   },
   "sidebarFullHideHint": {
-    "message": "접힌 사이드바를 완전히 숨기고, 왼쪽 가장자리에 마우스를 올려 표시",
+    "message": "접힌 사이드바를 완전히 숨김",
     "description": "Fully hide sidebar feature hint"
   },
   "folderSpacing": {

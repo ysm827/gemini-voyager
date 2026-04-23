@@ -463,6 +463,30 @@
     "message": "クラウドから同期",
     "description": "Cloud sync button tooltip"
   },
+  "folder_manage_in_library": {
+    "message": "ライブラリで管理",
+    "description": "Shortcut button shown in AI Studio sidebar to jump to /library for drag-and-drop conversation management"
+  },
+  "aistudio_hide_archived_nudge_title": {
+    "message": "AI Studio のライブラリを整理",
+    "description": "Onboarding nudge title inviting the user to hide archived conversations from the AI Studio library table"
+  },
+  "aistudio_hide_archived_nudge_body": {
+    "message": "Voyager はフォルダに振り分け済みの会話をライブラリの一覧から隠せます。未分類だけが残ります。",
+    "description": "Onboarding nudge body explaining the hide-archived feature in AI Studio"
+  },
+  "aistudio_hide_archived_nudge_enable": {
+    "message": "有効化",
+    "description": "Primary button on the AI Studio hide-archived nudge"
+  },
+  "aistudio_hide_archived_nudge_dismiss": {
+    "message": "あとで",
+    "description": "Dismiss button on the AI Studio hide-archived nudge"
+  },
+  "aistudio_hide_archived_nudge_footnote": {
+    "message": "AI Studio でのみ有効 — Gemini の設定とは別に保存されます。",
+    "description": "Footnote on the AI Studio hide-archived nudge noting the setting is scoped per platform"
+  },
   "folder_import": {
     "message": "フォルダをインポート",
     "description": "Import folders button tooltip"
@@ -1103,6 +1127,14 @@
     "message": "テキストや添付ファイルがある場合でも入力欄を折りたたみます",
     "description": "Hint text explaining the collapse when not empty feature"
   },
+  "inputVimMode": {
+    "message": "入力 Vim モード",
+    "description": "Toggle label for focusing and leaving the question input with Vim-style keys"
+  },
+  "inputVimModeHint": {
+    "message": "質問入力内で i/Escape で挿入/ノーマルを切り替え、v で選択し、Vim 移動を使えます",
+    "description": "Hint for input Vim mode shortcuts"
+  },
   "ctrlEnterSend": {
     "message": "{modifier}+Enter で送信",
     "description": "Modifier+Enter to send toggle label. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
@@ -1296,7 +1328,7 @@
     "description": "サイドバー完全非表示の切り替えラベル"
   },
   "sidebarFullHideHint": {
-    "message": "折りたたみ時にサイドバーを完全に非表示にし、左端にマウスを移動して表示",
+    "message": "折りたたみ時にサイドバーを完全に非表示にする",
     "description": "サイドバー完全非表示機能のヒント"
   },
   "folderSpacing": {
