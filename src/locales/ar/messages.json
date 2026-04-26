@@ -1079,13 +1079,21 @@
     "message": "خيارات NanoBanana",
     "description": "NanoBanana options section label"
   },
-  "enableNanobananaWatermarkRemover": {
-    "message": "إزالة علامة NanoBanana المائية",
-    "description": "Enable automatic watermark removal for NanoBanana images"
+  "nanobananaDownloadLabel": {
+    "message": "إزالة العلامة المائية عند التنزيل",
+    "description": "Toggle: strip the Gemini watermark from images saved via the download button (lightweight, recommended)"
   },
-  "nanobananaWatermarkRemoverHint": {
-    "message": "يزيل تلقائيًا علامات Gemini المائية المرئية من الصور التي تم إنشاؤها",
-    "description": "Watermark remover feature hint"
+  "nanobananaDownloadHint": {
+    "message": "عند الضغط على زر التنزيل، يتم حفظ الصورة بدون العلامة المائية.",
+    "description": "Hint for the download-time watermark removal toggle"
+  },
+  "nanobananaPreviewLabel": {
+    "message": "إزالة العلامة المائية في المعاينة",
+    "description": "Toggle: also strip the watermark from images shown in the chat (heavier, may flash while processing)"
+  },
+  "nanobananaPreviewHint": {
+    "message": "تتم معالجة الصور المعروضة على الشاشة أيضًا. أبطأ؛ وقد تومض الصورة للحظة أثناء المعالجة.",
+    "description": "Hint for the preview-time watermark removal toggle"
   },
   "nanobananaDownloadTooltip": {
     "message": "تنزيل الصورة بدون علامة مائية (NanoBanana)",
@@ -1830,5 +1838,9 @@
   "floatingPanelGestureHint": {
     "message": "نقر مزدوج لإعادة التسمية · زر الفأرة الأيمن للتثبيت واللون والحذف.",
     "description": "Floating folder panel hint explaining folder gestures and context menu actions"
+  },
+  "folder_new_chat_in_folder": {
+    "message": "محادثة جديدة في هذا المجلد",
+    "description": "Folder context menu item to create a new chat and auto-assign it to this folder"
   }
 }
