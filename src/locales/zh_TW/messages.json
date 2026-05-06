@@ -359,6 +359,18 @@
     "message": "大",
     "description": "大字體大小標籤"
   },
+  "chatLineHeight": {
+    "message": "對話行距",
+    "description": "對話訊息行距調整標籤"
+  },
+  "chatLineHeightTight": {
+    "message": "緊湊",
+    "description": "緊湊行距標籤"
+  },
+  "chatLineHeightLoose": {
+    "message": "寬鬆",
+    "description": "寬鬆行距標籤"
+  },
   "sidebarWidth": {
     "message": "側邊欄寬度",
     "description": "側邊欄寬度調節標籤"
@@ -1163,6 +1175,14 @@
     "message": "按 {modifier}+Enter 傳送訊息，Enter 鍵僅換行",
     "description": "Modifier+Enter 傳送功能提示。{modifier} 在 macOS 上替換為 ⌘，其他平台替換為 Ctrl"
   },
+  "aistudioEnterSend": {
+    "message": "AI Studio Enter 傳送",
+    "description": "AI Studio Enter 傳送開關標籤。{modifier} 在 macOS 上替換為 ⌘，其他平台替換為 Ctrl"
+  },
+  "aistudioEnterSendHint": {
+    "message": "在 AI Studio 中按 Enter 傳送訊息，{modifier}+Enter 換行",
+    "description": "AI Studio Enter 傳送功能提示。{modifier} 在 macOS 上替換為 ⌘，其他平台替換為 Ctrl"
+  },
   "safariEnterFix": {
     "message": "修復 Safari Enter 鍵",
     "description": "Safari Enter 鍵修復功能的開關標籤"
@@ -1546,10 +1566,6 @@
   "changelog_social_xiaohongshu": {
     "message": "小紅書",
     "description": "Xiaohongshu platform name for social links"
-  },
-  "changelog_social_zhihu": {
-    "message": "知乎",
-    "description": "Zhihu platform name for social links"
   },
   "changelog_docs_hint": {
     "message": "詳細功能見文檔",

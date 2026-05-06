@@ -399,6 +399,18 @@
     "message": "大",
     "description": "Large font size label"
   },
+  "chatLineHeight": {
+    "message": "チャットの行間",
+    "description": "Chat message line spacing adjustment label"
+  },
+  "chatLineHeightTight": {
+    "message": "狭め",
+    "description": "Tight chat line spacing label"
+  },
+  "chatLineHeightLoose": {
+    "message": "広め",
+    "description": "Loose chat line spacing label"
+  },
   "sidebarWidth": {
     "message": "サイドバーの幅",
     "description": "Sidebar width adjustment label"
@@ -1203,6 +1215,14 @@
     "message": "{modifier}+Enter でメッセージを送信、Enter で改行",
     "description": "Modifier+Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
   },
+  "aistudioEnterSend": {
+    "message": "AI Studio で Enter 送信",
+    "description": "AI Studio Enter to send toggle label. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
+  "aistudioEnterSendHint": {
+    "message": "AI Studio では Enter で送信、{modifier}+Enter で改行",
+    "description": "AI Studio Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
   "safariEnterFix": {
     "message": "Safari の Enter キーを修正",
     "description": "Safari Enter キー修正機能のトグルラベル"
@@ -1546,10 +1566,6 @@
   "changelog_social_xiaohongshu": {
     "message": "小紅書",
     "description": "Xiaohongshu platform name for social links"
-  },
-  "changelog_social_zhihu": {
-    "message": "知乎",
-    "description": "Zhihu platform name for social links"
   },
   "changelog_docs_hint": {
     "message": "詳細はドキュメントへ",

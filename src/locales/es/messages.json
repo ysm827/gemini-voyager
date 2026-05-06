@@ -399,6 +399,18 @@
     "message": "Grande",
     "description": "Large font size label"
   },
+  "chatLineHeight": {
+    "message": "Interlineado del chat",
+    "description": "Chat message line spacing adjustment label"
+  },
+  "chatLineHeightTight": {
+    "message": "Ajustado",
+    "description": "Tight chat line spacing label"
+  },
+  "chatLineHeightLoose": {
+    "message": "Amplio",
+    "description": "Loose chat line spacing label"
+  },
   "sidebarWidth": {
     "message": "Ancho de la barra lateral",
     "description": "Sidebar width adjustment label"
@@ -1203,6 +1215,14 @@
     "message": "Presiona {modifier}+Enter para enviar mensajes, Enter para agregar una nueva línea",
     "description": "Modifier+Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
   },
+  "aistudioEnterSend": {
+    "message": "Enter para enviar en AI Studio",
+    "description": "AI Studio Enter to send toggle label. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
+  "aistudioEnterSendHint": {
+    "message": "Presiona Enter para enviar mensajes, {modifier}+Enter para agregar una nueva línea",
+    "description": "AI Studio Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
   "safariEnterFix": {
     "message": "Corregir tecla Enter en Safari",
     "description": "Toggle label for Safari Enter key fix feature"
@@ -1546,10 +1566,6 @@
   "changelog_social_xiaohongshu": {
     "message": "Xiaohongshu",
     "description": "Xiaohongshu platform name for social links"
-  },
-  "changelog_social_zhihu": {
-    "message": "Zhihu",
-    "description": "Zhihu platform name for social links"
   },
   "changelog_docs_hint": {
     "message": "Detalles en docs",

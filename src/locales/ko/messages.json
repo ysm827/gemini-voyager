@@ -399,6 +399,18 @@
     "message": "크게",
     "description": "Large font size label"
   },
+  "chatLineHeight": {
+    "message": "대화 줄 간격",
+    "description": "Chat message line spacing adjustment label"
+  },
+  "chatLineHeightTight": {
+    "message": "좁게",
+    "description": "Tight chat line spacing label"
+  },
+  "chatLineHeightLoose": {
+    "message": "넓게",
+    "description": "Loose chat line spacing label"
+  },
   "sidebarWidth": {
     "message": "사이드바 너비",
     "description": "Sidebar width adjustment label"
@@ -1203,6 +1215,14 @@
     "message": "{modifier}+Enter 를 눌러 메시지를 전송하고, Enter 로 줄바꿈을 합니다",
     "description": "Modifier+Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
   },
+  "aistudioEnterSend": {
+    "message": "AI Studio에서 Enter로 전송",
+    "description": "AI Studio Enter to send toggle label. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
+  "aistudioEnterSendHint": {
+    "message": "AI Studio에서 Enter로 메시지를 전송하고, {modifier}+Enter로 줄바꿈을 합니다",
+    "description": "AI Studio Enter to send feature hint. {modifier} is replaced with ⌘ on macOS and Ctrl on other platforms"
+  },
   "safariEnterFix": {
     "message": "Safari Enter 키 수정",
     "description": "Safari Enter 키 수정 기능 토글 라벨"
@@ -1546,10 +1566,6 @@
   "changelog_social_xiaohongshu": {
     "message": "Xiaohongshu",
     "description": "Xiaohongshu platform name for social links"
-  },
-  "changelog_social_zhihu": {
-    "message": "Zhihu",
-    "description": "Zhihu platform name for social links"
   },
   "changelog_docs_hint": {
     "message": "자세한 내용은 문서 참조",

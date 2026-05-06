@@ -66,6 +66,8 @@ export const StorageKeys = {
   CHAT_WIDTH_ENABLED: 'gvChatWidthEnabled',
   CHAT_FONT_SIZE: 'gvChatFontSize',
   CHAT_FONT_SIZE_ENABLED: 'gvChatFontSizeEnabled',
+  CHAT_LINE_HEIGHT: 'gvChatLineHeight',
+  CHAT_LINE_HEIGHT_ENABLED: 'gvChatLineHeightEnabled',
   EDIT_INPUT_WIDTH: 'geminiEditInputWidth',
   EDIT_INPUT_WIDTH_ENABLED: 'gvEditInputWidthEnabled',
   SIDEBAR_WIDTH: 'geminiSidebarWidth',
@@ -99,6 +101,7 @@ export const StorageKeys = {
 
   // Input behavior
   CTRL_ENTER_SEND: 'gvCtrlEnterSend',
+  AISTUDIO_ENTER_SEND: 'gvAIStudioEnterSend',
   SAFARI_ENTER_FIX: 'gvSafariEnterFix',
   INPUT_COLLAPSE_ENABLED: 'gvInputCollapseEnabled',
   INPUT_COLLAPSE_WHEN_NOT_EMPTY: 'gvInputCollapseWhenNotEmpty',

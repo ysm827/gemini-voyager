@@ -12,6 +12,7 @@ import { startCanvasExport } from './canvasExport/index';
 import { startChangelog } from './changelog/index';
 import { startChatFontSizeAdjuster } from './chatFontSize/index';
 import { startInputVimMode } from './chatInput/vimMode';
+import { startChatLineHeightAdjuster } from './chatLineHeight/index';
 import { startChatWidthAdjuster } from './chatWidth/index';
 import { startContextSync } from './contextSync';
 import { startDeepResearchExport } from './deepResearch/index';
@@ -190,6 +191,9 @@ async function initializeFeatures(): Promise<void> {
       startChatFontSizeAdjuster();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
+      startChatLineHeightAdjuster();
+      await delay(LIGHT_FEATURE_INIT_DELAY);
+
       startEditInputWidthAdjuster();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
@@ -248,7 +252,7 @@ async function initializeFeatures(): Promise<void> {
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       // Send behavior (Ctrl+Enter to send)
-      sendBehaviorCleanup = await startSendBehavior();
+      sendBehaviorCleanup = await startSendBehavior('gemini');
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       // Draft auto-save
@@ -330,6 +334,10 @@ async function initializeFeatures(): Promise<void> {
 
       // Formula copy support for AI Studio
       startFormulaCopy();
+      await delay(LIGHT_FEATURE_INIT_DELAY);
+
+      // Send behavior (Enter to send)
+      sendBehaviorCleanup = await startSendBehavior('aistudio');
       await delay(LIGHT_FEATURE_INIT_DELAY);
     }
   } catch (e) {
