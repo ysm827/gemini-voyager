@@ -141,6 +141,15 @@ Side-effect: `dist_chrome/` is now the Edge variant (no `key`), not the Chrome W
 
 Runs anywhere — no Xcode, no code signing. Do this even when skipping the Safari DMG.
 
+After the build, download the CI-built Chrome zip (the local `dist_chrome/` is now the Edge variant without `key`), reveal the Edge zip in Finder, and open both store dashboards so the user can upload:
+
+```bash
+gh release download v{VERSION} --pattern "voyager-chrome-v{VERSION}.zip" --clobber
+open -R voyager-edge-v{VERSION}.zip
+open https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview
+open "https://chrome.google.com/webstore/devconsole"
+```
+
 ## Step 8 — Safari DMG sub-flow
 
 Safari gets its own asset (a signed DMG) because Safari extensions ship as native apps, not webstore uploads. This step requires **full Xcode.app** — `xcrun safari-web-extension-converter` and `xcodebuild archive` both fail with only Command Line Tools.
