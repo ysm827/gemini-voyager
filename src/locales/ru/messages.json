@@ -475,6 +475,34 @@
     "message": "Синхронизировать из облака",
     "description": "Cloud sync button tooltip"
   },
+  "folder_cloud": {
+    "message": "Облачная синхронизация",
+    "description": "Tooltip for the merged cloud button that opens an upload/sync popover"
+  },
+  "folder_settings": {
+    "message": "Настройки папок",
+    "description": "Tooltip for the gear icon that opens folder-scoped settings"
+  },
+  "folder_anchor_move_above_notebooks": {
+    "message": "Переместить папки над Notebooks",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Recents — clicking moves them above Notebooks instead."
+  },
+  "folder_anchor_move_above_recents": {
+    "message": "Переместить папки над Recents",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Notebooks — clicking moves them above Recents instead."
+  },
+  "folder_item_font_size": {
+    "message": "Размер текста",
+    "description": "Label for the folder/conversation text size stepper inside folder settings"
+  },
+  "folder_item_font_size_decrease": {
+    "message": "Уменьшить",
+    "description": "Tooltip for the minus button on the folder text size stepper"
+  },
+  "folder_item_font_size_increase": {
+    "message": "Увеличить",
+    "description": "Tooltip for the plus button on the folder text size stepper"
+  },
   "folder_manage_in_library": {
     "message": "Управлять в библиотеке",
     "description": "Shortcut button shown in AI Studio sidebar to jump to /library for drag-and-drop conversation management"
@@ -1299,6 +1327,14 @@
     "message": "Показывать плавающую кнопку для цитирования выделенного текста при выделении текста в разговорах",
     "description": "Quote reply feature hint"
   },
+  "hideInputHalo": {
+    "message": "Скрыть ореол поля ввода",
+    "description": "Input halo hider toggle label"
+  },
+  "hideInputHaloHint": {
+    "message": "Скрывает синий радиально-градиентный ореол за полем ввода чата Gemini",
+    "description": "Input halo hider feature hint"
+  },
   "contextSync": {
     "message": "Синхронизация контекста",
     "description": "Context Sync title"
@@ -1419,6 +1455,22 @@
     "message": "Default model cleared",
     "description": "Toast message when default model is cleared"
   },
+  "setAsDefaultThinkingLevel": {
+    "message": "Set as default thinking level",
+    "description": "Tooltip for setting default thinking level"
+  },
+  "cancelDefaultThinkingLevel": {
+    "message": "Cancel default thinking level",
+    "description": "Tooltip for cancelling default thinking level"
+  },
+  "defaultThinkingLevelSet": {
+    "message": "Default thinking level set: $1",
+    "description": "Toast message when default thinking level is set"
+  },
+  "defaultThinkingLevelCleared": {
+    "message": "Default thinking level cleared",
+    "description": "Toast message when default thinking level is cleared"
+  },
   "sidebarAutoHide": {
     "message": "Авто-скрытие боковой панели",
     "description": "Auto-hide sidebar toggle label"
@@ -1458,6 +1510,18 @@
   "folderTreeIndentSpacious": {
     "message": "Широкий",
     "description": "Wide subfolder indentation label"
+  },
+  "gemsSidebarCount": {
+    "message": "Недавние Gems в боковой панели",
+    "description": "Popup slider label — how many recent gems to show in the sidebar above Notebooks. 0 hides the section entirely."
+  },
+  "gemsSidebarCountOff": {
+    "message": "Откл.",
+    "description": "Narrow-end label on the gems count slider (count=0, section hidden)."
+  },
+  "gemsSidebarCountMany": {
+    "message": "Много",
+    "description": "Wide-end label on the gems count slider (count up to 10)."
   },
   "export_select_mode_select_all": {
     "message": "Выбрать все",
@@ -1586,6 +1650,10 @@
   "changelog_recommendation": {
     "message": "Если Voyager был полезен, поделитесь им с друзьями или в соцсетях — не забудьте отметить автора!",
     "description": "Changelog modal recommendation message"
+  },
+  "changelog_follow_cta": {
+    "message": "Получайте свежие обновления — подпишитесь на меня в соцсетях, новые релизы и быстрые исправления появляются там первыми.",
+    "description": "Changelog modal follow-me CTA headline"
   },
   "changelog_social_xiaohongshu": {
     "message": "Xiaohongshu",

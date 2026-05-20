@@ -435,6 +435,34 @@
     "message": "從雲端同步",
     "description": "雲端同步按鈕提示"
   },
+  "folder_cloud": {
+    "message": "雲端同步",
+    "description": "合併後的雲端按鈕提示，點擊彈出上傳/同步選項"
+  },
+  "folder_settings": {
+    "message": "資料夾設定",
+    "description": "齒輪圖示提示，開啟資料夾相關設定"
+  },
+  "folder_anchor_move_above_notebooks": {
+    "message": "將資料夾移到 Notebooks 上方",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Recents — clicking moves them above Notebooks instead."
+  },
+  "folder_anchor_move_above_recents": {
+    "message": "將資料夾移到 Recents 上方",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Notebooks — clicking moves them above Recents instead."
+  },
+  "folder_item_font_size": {
+    "message": "字級",
+    "description": "資料夾/對話字級步進器的標籤"
+  },
+  "folder_item_font_size_decrease": {
+    "message": "縮小",
+    "description": "字級步進器減號按鈕提示"
+  },
+  "folder_item_font_size_increase": {
+    "message": "放大",
+    "description": "字級步進器加號按鈕提示"
+  },
   "folder_manage_in_library": {
     "message": "到 Library 管理",
     "description": "AI Studio 側欄按鈕，跳轉到 /library 以拖曳管理對話"
@@ -1259,6 +1287,14 @@
     "message": "在對話中選取文字時顯示懸浮按鈕，用於引用所選內容",
     "description": "引用回覆功能提示"
   },
+  "hideInputHalo": {
+    "message": "隱藏輸入框光暈",
+    "description": "輸入框光暈開關標籤"
+  },
+  "hideInputHaloHint": {
+    "message": "隱藏 Gemini 輸入框背後的藍色徑向漸層光暈",
+    "description": "輸入框光暈開關說明"
+  },
   "contextSync": {
     "message": "上下文同步",
     "description": "上下文同步標題"
@@ -1419,6 +1455,22 @@
     "message": "已取消預設模型",
     "description": "Toast message when default model is cleared"
   },
+  "setAsDefaultThinkingLevel": {
+    "message": "設為預設思考強度",
+    "description": "Tooltip for setting default thinking level"
+  },
+  "cancelDefaultThinkingLevel": {
+    "message": "取消預設思考強度",
+    "description": "Tooltip for cancelling default thinking level"
+  },
+  "defaultThinkingLevelSet": {
+    "message": "已設定預設思考強度：$1",
+    "description": "Toast message when default thinking level is set"
+  },
+  "defaultThinkingLevelCleared": {
+    "message": "已取消預設思考強度",
+    "description": "Toast message when default thinking level is cleared"
+  },
   "sidebarAutoHide": {
     "message": "側邊欄自動收起",
     "description": "側邊欄自動收起開關標籤"
@@ -1458,6 +1510,18 @@
   "folderTreeIndentSpacious": {
     "message": "更寬",
     "description": "較寬的子資料夾縮排標籤"
+  },
+  "gemsSidebarCount": {
+    "message": "側欄中顯示的最近 Gems",
+    "description": "Popup slider label — how many recent gems to show in the sidebar above Notebooks. 0 hides the section entirely."
+  },
+  "gemsSidebarCountOff": {
+    "message": "關閉",
+    "description": "Narrow-end label on the gems count slider (count=0, section hidden)."
+  },
+  "gemsSidebarCountMany": {
+    "message": "更多",
+    "description": "Wide-end label on the gems count slider (count up to 10)."
   },
   "export_select_mode_select_all": {
     "message": "全選",
@@ -1586,6 +1650,10 @@
   "changelog_recommendation": {
     "message": "如果 Voyager 對你有幫助，歡迎推薦給朋友或在社交媒體上分享，記得 @ 作者哦！",
     "description": "Changelog modal recommendation message"
+  },
+  "changelog_follow_cta": {
+    "message": "獲取最新更新，歡迎追蹤我的社群媒體，新功能與即時修復都會在這裡第一時間發布。",
+    "description": "Changelog modal follow-me CTA headline"
   },
   "changelog_social_xiaohongshu": {
     "message": "小紅書",

@@ -4,8 +4,18 @@ import {
 } from '@nolebase/vitepress-plugin-git-changelog/vite';
 import { type HeadConfig, defineConfig } from 'vitepress';
 
+import { ENABLED as ANNOUNCEMENT_ENABLED } from './theme/composables/announcement';
+
 // https://vitepress.dev/reference/site-config
 const siteUrl = 'https://voyager.nagi.fun';
+
+// Inject a "Notice" nav entry next to the main menu items when an
+// announcement is active. The hash link is intercepted by AnnouncementModal,
+// which opens the modal and clears the hash. Toggle ENABLED in
+// theme/composables/announcement.ts to remove the entry from every locale.
+function announcementNav(text: string) {
+  return ANNOUNCEMENT_ENABLED ? [{ text, link: '#announcement' }] : [];
+}
 
 const localeHreflang: { prefix: string; hreflang: string }[] = [
   { prefix: '', hreflang: 'zh-CN' },
@@ -80,6 +90,7 @@ export default defineConfig({
       lang: 'zh-CN',
       themeConfig: {
         nav: [
+          ...announcementNav('重要通知'),
           { text: '首页', link: '/' },
           { text: '指南', link: '/guide/installation' },
           { text: '数据查看器', link: '/data-viewer' },
@@ -122,6 +133,7 @@ export default defineConfig({
               { text: '防自动跳转', link: '/guide/prevent-auto-scroll' },
               { text: '输入框折叠', link: '/guide/input-collapse' },
               { text: '隐藏最近项目和 Gem', link: '/guide/recents-hider' },
+              { text: '侧栏 Gems 列表', link: '/guide/gems-sidebar' },
               { text: '默认模型', link: '/guide/default-model' },
               { text: '标签页标题同步', link: '/guide/tab-title' },
               { text: '上下文同步到IDE（实验性）', link: '/guide/context-sync' },
@@ -146,6 +158,7 @@ export default defineConfig({
       link: '/zh_TW/',
       themeConfig: {
         nav: [
+          ...announcementNav('重要通知'),
           { text: '首頁', link: '/zh_TW/' },
           { text: '指南', link: '/zh_TW/guide/installation' },
           { text: '資料查看器', link: '/zh_TW/data-viewer' },
@@ -188,6 +201,7 @@ export default defineConfig({
               { text: '防自動跳轉', link: '/zh_TW/guide/prevent-auto-scroll' },
               { text: '輸入框摺疊', link: '/zh_TW/guide/input-collapse' },
               { text: '隱藏最近項目和 Gem', link: '/zh_TW/guide/recents-hider' },
+              { text: '側欄 Gems 列表', link: '/zh_TW/guide/gems-sidebar' },
               { text: '預設模型', link: '/zh_TW/guide/default-model' },
               { text: '標籤標題同步', link: '/zh_TW/guide/tab-title' },
               { text: '上下文同步（實驗性）', link: '/zh_TW/guide/context-sync' },
@@ -212,6 +226,7 @@ export default defineConfig({
       link: '/en/',
       themeConfig: {
         nav: [
+          ...announcementNav('Notice'),
           { text: 'Home', link: '/en/' },
           { text: 'Guide', link: '/en/guide/installation' },
           { text: 'Data Viewer', link: '/en/data-viewer' },
@@ -254,6 +269,7 @@ export default defineConfig({
               { text: 'Prevent Auto Scroll', link: '/en/guide/prevent-auto-scroll' },
               { text: 'Input Collapse', link: '/en/guide/input-collapse' },
               { text: 'Hide Recent Items and Gems', link: '/en/guide/recents-hider' },
+              { text: 'Recent Gems in Sidebar', link: '/en/guide/gems-sidebar' },
               { text: 'Default Model', link: '/en/guide/default-model' },
               { text: 'Tab Title Sync', link: '/en/guide/tab-title' },
               { text: 'Context Sync to IDE (Experimental)', link: '/en/guide/context-sync' },
@@ -278,6 +294,7 @@ export default defineConfig({
       link: '/ja/',
       themeConfig: {
         nav: [
+          ...announcementNav('お知らせ'),
           { text: 'ホーム', link: '/ja/' },
           { text: 'ガイド', link: '/ja/guide/installation' },
           { text: 'データビューア', link: '/ja/data-viewer' },
@@ -320,6 +337,7 @@ export default defineConfig({
               { text: '自動スクロール防止', link: '/ja/guide/prevent-auto-scroll' },
               { text: '入力欄の自動非表示', link: '/ja/guide/input-collapse' },
               { text: '最近の項目と Gem を非表示', link: '/ja/guide/recents-hider' },
+              { text: 'サイドバーの最近の Gems', link: '/ja/guide/gems-sidebar' },
               { text: 'デフォルトモデル', link: '/ja/guide/default-model' },
               { text: 'タブタイトルの同期', link: '/ja/guide/tab-title' },
               { text: 'IDEへのコンテキスト同期（実験的）', link: '/ja/guide/context-sync' },
@@ -344,6 +362,7 @@ export default defineConfig({
       link: '/ko/',
       themeConfig: {
         nav: [
+          ...announcementNav('공지'),
           { text: '홈', link: '/ko/' },
           { text: '가이드', link: '/ko/guide/installation' },
           { text: '데이터 뷰어', link: '/ko/data-viewer' },
@@ -386,6 +405,7 @@ export default defineConfig({
               { text: '자동 스크롤 방지', link: '/ko/guide/prevent-auto-scroll' },
               { text: '입력창 접기', link: '/ko/guide/input-collapse' },
               { text: '최근 항목 및 Gem 숨기기', link: '/ko/guide/recents-hider' },
+              { text: '사이드바의 최근 Gems', link: '/ko/guide/gems-sidebar' },
               { text: '기본 모델', link: '/ko/guide/default-model' },
               { text: '탭 제목 동기화', link: '/ko/guide/tab-title' },
               { text: 'IDE 컨텍스트 동기화 (실험적)', link: '/ko/guide/context-sync' },
@@ -410,6 +430,7 @@ export default defineConfig({
       link: '/fr/',
       themeConfig: {
         nav: [
+          ...announcementNav('Annonce'),
           { text: 'Accueil', link: '/fr/' },
           { text: 'Guide', link: '/fr/guide/installation' },
           { text: 'Visionneuse', link: '/fr/data-viewer' },
@@ -452,6 +473,7 @@ export default defineConfig({
               { text: 'Empêcher le défilement auto', link: '/fr/guide/prevent-auto-scroll' },
               { text: 'Réduction Entrée', link: '/fr/guide/input-collapse' },
               { text: 'Masquer les éléments récents et les Gems', link: '/fr/guide/recents-hider' },
+              { text: 'Gems récents dans la barre latérale', link: '/fr/guide/gems-sidebar' },
               { text: 'Modèle par Défaut', link: '/fr/guide/default-model' },
               { text: 'Synchro Titre Onglet', link: '/fr/guide/tab-title' },
               { text: 'Synchro Contexte IDE', link: '/fr/guide/context-sync' },
@@ -476,6 +498,7 @@ export default defineConfig({
       link: '/es/',
       themeConfig: {
         nav: [
+          ...announcementNav('Aviso'),
           { text: 'Inicio', link: '/es/' },
           { text: 'Guía', link: '/es/guide/installation' },
           { text: 'Visor', link: '/es/data-viewer' },
@@ -521,6 +544,7 @@ export default defineConfig({
               { text: 'Evitar desplazamiento automático', link: '/es/guide/prevent-auto-scroll' },
               { text: 'Colapso de Entrada', link: '/es/guide/input-collapse' },
               { text: 'Ocultar elementos recientes y Gems', link: '/es/guide/recents-hider' },
+              { text: 'Gems recientes en la barra lateral', link: '/es/guide/gems-sidebar' },
               { text: 'Modelo Predeterminado', link: '/es/guide/default-model' },
               {
                 text: 'Sincronización de Título de Pestaña',
@@ -551,6 +575,7 @@ export default defineConfig({
       link: '/pt/',
       themeConfig: {
         nav: [
+          ...announcementNav('Aviso'),
           { text: 'Início', link: '/pt/' },
           { text: 'Guia', link: '/pt/guide/installation' },
           { text: 'Visualizador', link: '/pt/data-viewer' },
@@ -593,6 +618,7 @@ export default defineConfig({
               { text: 'Prevenir rolamento automático', link: '/pt/guide/prevent-auto-scroll' },
               { text: 'Colapso de Entrada', link: '/pt/guide/input-collapse' },
               { text: 'Ocultar Itens Recentes e Gems', link: '/pt/guide/recents-hider' },
+              { text: 'Gems recentes na barra lateral', link: '/pt/guide/gems-sidebar' },
               { text: 'Modelo Padrão', link: '/pt/guide/default-model' },
               { text: 'Sincronização do Título da Aba', link: '/pt/guide/tab-title' },
               { text: 'Sincronização de Contexto (Experimental)', link: '/pt/guide/context-sync' },
@@ -618,6 +644,7 @@ export default defineConfig({
       dir: 'rtl',
       themeConfig: {
         nav: [
+          ...announcementNav('إعلان'),
           { text: 'الرئيسية', link: '/ar/' },
           { text: 'الدليل', link: '/ar/guide/installation' },
           { text: 'عارض البيانات', link: '/ar/data-viewer' },
@@ -660,6 +687,7 @@ export default defineConfig({
               { text: 'منع التمرير التلقائي', link: '/ar/guide/prevent-auto-scroll' },
               { text: 'طي الإدخال', link: '/ar/guide/input-collapse' },
               { text: 'إخفاء العناصر الأخيرة والـ Gems', link: '/ar/guide/recents-hider' },
+              { text: 'Gems الأخيرة في الشريط الجانبي', link: '/ar/guide/gems-sidebar' },
               { text: 'النموذج الافتراضي', link: '/ar/guide/default-model' },
               { text: 'مزامنة عنوان علامة التبويب', link: '/ar/guide/tab-title' },
               { text: 'مزامنة السياق (تجريبي)', link: '/ar/guide/context-sync' },
@@ -684,6 +712,7 @@ export default defineConfig({
       link: '/ru/',
       themeConfig: {
         nav: [
+          ...announcementNav('Объявление'),
           { text: 'Главная', link: '/ru/' },
           { text: 'Руководство', link: '/ru/guide/installation' },
           { text: 'Просмотр', link: '/ru/data-viewer' },
@@ -729,6 +758,7 @@ export default defineConfig({
               { text: 'Предотвращение автопрокрутки', link: '/ru/guide/prevent-auto-scroll' },
               { text: 'Сворачивание ввода', link: '/ru/guide/input-collapse' },
               { text: 'Скрытие недавних элементов и Gems', link: '/ru/guide/recents-hider' },
+              { text: 'Недавние Gems в боковой панели', link: '/ru/guide/gems-sidebar' },
               { text: 'Модель по умолчанию', link: '/ru/guide/default-model' },
               {
                 text: 'Синхронизация заголовка',

@@ -475,6 +475,34 @@
     "message": "Sincronizar desde la nube",
     "description": "Cloud sync button tooltip"
   },
+  "folder_cloud": {
+    "message": "Sincronización en la nube",
+    "description": "Tooltip for the merged cloud button that opens an upload/sync popover"
+  },
+  "folder_settings": {
+    "message": "Ajustes de carpetas",
+    "description": "Tooltip for the gear icon that opens folder-scoped settings"
+  },
+  "folder_anchor_move_above_notebooks": {
+    "message": "Mover carpetas encima de Notebooks",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Recents — clicking moves them above Notebooks instead."
+  },
+  "folder_anchor_move_above_recents": {
+    "message": "Mover carpetas encima de Recents",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Notebooks — clicking moves them above Recents instead."
+  },
+  "folder_item_font_size": {
+    "message": "Tamaño del texto",
+    "description": "Label for the folder/conversation text size stepper inside folder settings"
+  },
+  "folder_item_font_size_decrease": {
+    "message": "Reducir",
+    "description": "Tooltip for the minus button on the folder text size stepper"
+  },
+  "folder_item_font_size_increase": {
+    "message": "Aumentar",
+    "description": "Tooltip for the plus button on the folder text size stepper"
+  },
   "folder_manage_in_library": {
     "message": "Gestionar en la biblioteca",
     "description": "Shortcut button shown in AI Studio sidebar to jump to /library for drag-and-drop conversation management"
@@ -1299,6 +1327,14 @@
     "message": "Muestra un botón flotante para citar el texto seleccionado en las conversaciones",
     "description": "Quote reply feature hint"
   },
+  "hideInputHalo": {
+    "message": "Ocultar halo del cuadro de entrada",
+    "description": "Input halo hider toggle label"
+  },
+  "hideInputHaloHint": {
+    "message": "Oculta el halo azul de degradado radial detrás del cuadro de entrada del chat de Gemini",
+    "description": "Input halo hider feature hint"
+  },
   "contextSync": {
     "message": "Sincronización de contexto",
     "description": "Context Sync title"
@@ -1419,6 +1455,22 @@
     "message": "Default model cleared",
     "description": "Toast message when default model is cleared"
   },
+  "setAsDefaultThinkingLevel": {
+    "message": "Set as default thinking level",
+    "description": "Tooltip for setting default thinking level"
+  },
+  "cancelDefaultThinkingLevel": {
+    "message": "Cancel default thinking level",
+    "description": "Tooltip for cancelling default thinking level"
+  },
+  "defaultThinkingLevelSet": {
+    "message": "Default thinking level set: $1",
+    "description": "Toast message when default thinking level is set"
+  },
+  "defaultThinkingLevelCleared": {
+    "message": "Default thinking level cleared",
+    "description": "Toast message when default thinking level is cleared"
+  },
   "sidebarAutoHide": {
     "message": "Ocultar barra lateral auto",
     "description": "Auto-hide sidebar toggle label"
@@ -1458,6 +1510,18 @@
   "folderTreeIndentSpacious": {
     "message": "Ancha",
     "description": "Wide subfolder indentation label"
+  },
+  "gemsSidebarCount": {
+    "message": "Gems recientes en la barra lateral",
+    "description": "Popup slider label — how many recent gems to show in the sidebar above Notebooks. 0 hides the section entirely."
+  },
+  "gemsSidebarCountOff": {
+    "message": "Desactivado",
+    "description": "Narrow-end label on the gems count slider (count=0, section hidden)."
+  },
+  "gemsSidebarCountMany": {
+    "message": "Muchos",
+    "description": "Wide-end label on the gems count slider (count up to 10)."
   },
   "export_select_mode_select_all": {
     "message": "Seleccionar todo",
@@ -1586,6 +1650,10 @@
   "changelog_recommendation": {
     "message": "Si Voyager te ha sido útil, ¡compártelo con amigos o en redes sociales y etiqueta al autor!",
     "description": "Changelog modal recommendation message"
+  },
+  "changelog_follow_cta": {
+    "message": "Recibe las últimas novedades — sígueme en redes sociales para nuevas versiones y correcciones rápidas.",
+    "description": "Changelog modal follow-me CTA headline"
   },
   "changelog_social_xiaohongshu": {
     "message": "Xiaohongshu",

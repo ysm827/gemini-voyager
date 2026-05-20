@@ -475,6 +475,34 @@
     "message": "从云端同步",
     "description": "云同步按钮提示"
   },
+  "folder_cloud": {
+    "message": "云同步",
+    "description": "合并后的云按钮提示，点击弹出上传/同步选项"
+  },
+  "folder_settings": {
+    "message": "文件夹设置",
+    "description": "齿轮图标提示，打开文件夹相关设置"
+  },
+  "folder_anchor_move_above_notebooks": {
+    "message": "将文件夹移到 Notebooks 上方",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Recents — clicking moves them above Notebooks instead."
+  },
+  "folder_anchor_move_above_recents": {
+    "message": "将文件夹移到 Recents 上方",
+    "description": "Tooltip on the folder header swap button shown when folders are currently above Notebooks — clicking moves them above Recents instead."
+  },
+  "folder_item_font_size": {
+    "message": "字号",
+    "description": "文件夹/对话字号步进器的标签"
+  },
+  "folder_item_font_size_decrease": {
+    "message": "减小",
+    "description": "字号步进器减号按钮提示"
+  },
+  "folder_item_font_size_increase": {
+    "message": "增大",
+    "description": "字号步进器加号按钮提示"
+  },
   "folder_manage_in_library": {
     "message": "到 Library 管理",
     "description": "AI Studio 侧栏按钮，跳转到 /library 以拖拽管理对话"
@@ -1299,6 +1327,14 @@
     "message": "在对话中选中文字时显示悬浮按钮，用于引用所选内容",
     "description": "引用回复功能提示"
   },
+  "hideInputHalo": {
+    "message": "隐藏输入框光晕",
+    "description": "输入框光晕开关标签"
+  },
+  "hideInputHaloHint": {
+    "message": "隐藏 Gemini 输入框背后的蓝色径向渐变光晕",
+    "description": "输入框光晕开关说明"
+  },
   "contextSync": {
     "message": "上下文同步",
     "description": "上下文同步标题"
@@ -1419,6 +1455,22 @@
     "message": "已取消默认模型",
     "description": "Toast message when default model is cleared"
   },
+  "setAsDefaultThinkingLevel": {
+    "message": "设为默认思考强度",
+    "description": "Tooltip for setting default thinking level"
+  },
+  "cancelDefaultThinkingLevel": {
+    "message": "取消默认思考强度",
+    "description": "Tooltip for cancelling default thinking level"
+  },
+  "defaultThinkingLevelSet": {
+    "message": "已设置默认思考强度：$1",
+    "description": "Toast message when default thinking level is set"
+  },
+  "defaultThinkingLevelCleared": {
+    "message": "已取消默认思考强度",
+    "description": "Toast message when default thinking level is cleared"
+  },
   "sidebarAutoHide": {
     "message": "侧边栏自动收起",
     "description": "侧边栏自动收起开关标签"
@@ -1458,6 +1510,18 @@
   "folderTreeIndentSpacious": {
     "message": "更宽",
     "description": "较宽的子文件夹缩进标签"
+  },
+  "gemsSidebarCount": {
+    "message": "侧栏中显示的最近 Gems",
+    "description": "Popup slider label — how many recent gems to show in the sidebar above Notebooks. 0 hides the section entirely."
+  },
+  "gemsSidebarCountOff": {
+    "message": "关闭",
+    "description": "Narrow-end label on the gems count slider (count=0, section hidden)."
+  },
+  "gemsSidebarCountMany": {
+    "message": "更多",
+    "description": "Wide-end label on the gems count slider (count up to 10)."
   },
   "export_select_mode_select_all": {
     "message": "全选",
@@ -1586,6 +1650,10 @@
   "changelog_recommendation": {
     "message": "如果 Voyager 帮到了你，欢迎推荐给朋友或发到社媒，记得 @ 作者哦！",
     "description": "Changelog modal recommendation message"
+  },
+  "changelog_follow_cta": {
+    "message": "获取最新更新，欢迎关注我的社交媒体，新功能与即时修复都在这里第一时间发布。",
+    "description": "Changelog modal follow-me CTA headline"
   },
   "changelog_social_xiaohongshu": {
     "message": "小红书",

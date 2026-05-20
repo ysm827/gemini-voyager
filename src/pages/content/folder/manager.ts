@@ -152,6 +152,28 @@ export class FolderManager {
   private tooltipTimeout: number | null = null;
   private sideNavObserver: MutationObserver | null = null;
   private conversationObserver: MutationObserver | null = null; // Observer for conversation additions/removals
+  // Watches the sidebar for re-renders that would leave the folder container in
+  // the wrong slot relative to the Recents section. Gemini occasionally replaces
+  // the `expandable-section[data-test-id="chats-expandable-section"]` element
+  // wholesale, which leaves our folder container stranded below the new section
+  // even though it was inserted above the old one. The position enforcer below
+  // (`enforceFolderAboveRecents`) runs on any sidebar childList mutation,
+  // batched via requestAnimationFrame, and is a no-op once the container is
+  // already correctly placed.
+  private positionObserver: MutationObserver | null = null;
+  private positionEnforceRafId: number | null = null;
+  // User-controlled placement of the folder panel within Gemini's sidebar.
+  // 'above-recents' (default) keeps the historical behavior of anchoring just
+  // above the Recents expandable-section. 'above-notebooks' anchors above the
+  // Notebooks section instead, which collapses the visual gap when the user
+  // wants Folders to be the topmost section. Persisted via
+  // `StorageKeys.FOLDERS_ANCHOR` in chrome.storage.local.
+  private folderAnchor: 'above-recents' | 'above-notebooks' = 'above-recents';
+  // The small hover-reveal swap button we paint over Notebooks' top-right
+  // corner (the same spot the section-hider's "eye" button used to live in).
+  // Click flips `folderAnchor`. Tracked so we can detect a stale element when
+  // Gemini swaps the Notebooks section wholesale and re-paint on the new one.
+  private notebooksAnchorButton: HTMLElement | null = null;
   private importInProgress: boolean = false; // Lock to prevent concurrent imports
   private exportInProgress: boolean = false; // Lock to prevent concurrent exports
   private selectedConversations: Set<string> = new Set(); // For multi-select support
@@ -226,6 +248,16 @@ export class FolderManager {
   private floatingPanelHandle: FloatingPanelHandle | null = null;
   private floatingModeEnabled: boolean = false;
   private floatingModeActive: boolean = false;
+  // When Gemini swaps its sidebar DOM for an unsupported layout (e.g. mobile
+  // breakpoint at narrow viewport widths), our sidebar folder is removed and
+  // we can't reinject. Instead of leaving the user stranded, we mount the
+  // floating panel as a *temporary* fallback. This flag tracks that mode so
+  // the recovery loop knows to retire the floating panel once the sidebar
+  // anchor returns. It is distinct from `floatingModeActive`, which reflects
+  // the user's *explicit* floating-mode toggle in the popup.
+  private floatingFallbackActive: boolean = false;
+  private folderRecoveryTimer: number | null = null;
+  private folderRecoveryInFlight: boolean = false;
 
   constructor() {
     // Create storage adapter based on browser (Factory Pattern)
@@ -287,6 +319,9 @@ export class FolderManager {
 
       // Load hide archived setting
       await this.loadHideArchivedSetting();
+
+      // Load folder anchor preference (which native section to sit above)
+      await this.loadFolderAnchorSetting();
 
       // Load filter user setting
       await this.loadFilterUserSetting();
@@ -383,6 +418,9 @@ export class FolderManager {
       this.nativeMenuObserver.disconnect();
       this.nativeMenuObserver = null;
     }
+
+    this.teardownPositionEnforcer();
+    this.cleanupNotebooksAnchorButton();
 
     // Tear down floating-mode UI if it was surfaced.
     unmountFloatingModeNudge();
@@ -556,12 +594,123 @@ export class FolderManager {
     window.addEventListener('gv-print-cleanup', domRecoveryCheck);
     window.addEventListener('afterprint', domRecoveryCheck);
 
+    // Long-running watchdog. The single-shot recovery above wins the common
+    // resize / split-screen / print cases, but when Gemini swaps to its
+    // narrow-viewport mobile layout it tears the desktop sidebar out entirely
+    // and our sidebar anchor disappears. The user might pull the window wide
+    // again before Gemini finishes restoring the desktop sidebar, so the
+    // sideNavObserver mutation we'd otherwise rely on can fire mid-transition
+    // and bail. This tick instead pulls: every couple of seconds it inspects
+    // what Gemini *currently* offers and decides whether the sidebar folder is
+    // recoverable now, or whether we should surface the floating panel as a
+    // temporary fallback until it is.
+    if (this.folderRecoveryTimer === null) {
+      this.folderRecoveryTimer = window.setInterval(() => {
+        void this.runFolderRecoveryTick();
+      }, 2000);
+      this.addCleanupTask(() => {
+        if (this.folderRecoveryTimer !== null) {
+          clearInterval(this.folderRecoveryTimer);
+          this.folderRecoveryTimer = null;
+        }
+      });
+    }
+
     this.addCleanupTask(() => {
       if (domRecoveryTimer !== null) clearTimeout(domRecoveryTimer);
       window.removeEventListener('resize', domRecoveryCheck);
       window.removeEventListener('gv-print-cleanup', domRecoveryCheck);
       window.removeEventListener('afterprint', domRecoveryCheck);
     });
+  }
+
+  /**
+   * Decide each tick whether the folder UI is in the right place for what
+   * Gemini's sidebar currently looks like. Three states matter:
+   *
+   *   1. Sidebar folder is alive in DOM → if a floating fallback is up from a
+   *      previous narrow-viewport detour, tear it down. The sidebar is the
+   *      preferred home.
+   *   2. Folder is missing AND Gemini's sidebar anchor (overflow-container +
+   *      chats-expandable-section) is present → reinject the sidebar folder.
+   *      `reinitializeFolderUI` already handles the teardown / re-find dance.
+   *   3. Folder is missing AND the anchor is also missing → Gemini probably
+   *      swapped to a layout we can't host in (e.g. mobile). Mount the
+   *      floating panel so the user doesn't lose access to their folders.
+   *
+   * We skip the whole loop when the user has explicitly opted into floating
+   * mode (then the popup-controlled `floatingModeActive` owns the panel) or
+   * when a reinit is already mid-flight. The `folderRecoveryInFlight` flag
+   * guards against overlapping ticks while we await the async openFloatingPanel.
+   */
+  private async runFolderRecoveryTick(): Promise<void> {
+    if (this.isDestroyed) return;
+    if (!this.folderEnabled) return;
+    // User explicitly picked floating in the popup — don't mess with their UI.
+    if (this.floatingModeEnabled || this.floatingModeActive) return;
+    if (this.reinitializePromise) return;
+    if (this.folderRecoveryInFlight) return;
+
+    const sidebarFolderAlive =
+      !!this.containerElement && document.body.contains(this.containerElement);
+    const overflow = document.querySelector('[data-test-id="overflow-container"]');
+    const sidebarAnchor = overflow
+      ? overflow.querySelector(
+          'expandable-section[data-test-id="chats-expandable-section"], [data-test-id="all-conversations"]',
+        )
+      : null;
+
+    if (sidebarFolderAlive) {
+      // The sidebar is hosting the folder right now. If we left a floating
+      // fallback up from a previous transition, retire it.
+      if (this.floatingFallbackActive) {
+        this.debug('Recovery: sidebar folder restored — retiring floating fallback');
+        this.floatingFallbackActive = false;
+        if (this.floatingPanelHandle) {
+          this.floatingPanelHandle.destroy();
+          this.floatingPanelHandle = null;
+        }
+      }
+      // Belt-and-suspenders: if the position observer ever misses a mutation
+      // (e.g. it was torn down across a reinit and not yet re-attached), the
+      // recovery tick repairs the ordering here. No-op when already correct.
+      this.enforceFolderAboveRecents();
+      return;
+    }
+
+    if (sidebarAnchor) {
+      // The sidebar is back to a layout we can inject into but the folder
+      // isn't there. This usually means a previous reinit ran mid-transition
+      // and lost the race against Gemini's render. Retry now.
+      this.debug('Recovery: sidebar anchor present but folder missing — reinit');
+      // If a floating fallback is up, retire it before reinjecting the sidebar
+      // version so we don't briefly have both visible.
+      if (this.floatingFallbackActive) {
+        this.floatingFallbackActive = false;
+        if (this.floatingPanelHandle) {
+          this.floatingPanelHandle.destroy();
+          this.floatingPanelHandle = null;
+        }
+      }
+      this.reinitializeFolderUI();
+      return;
+    }
+
+    // Anchor is gone — Gemini moved the goalposts. Surface the floating panel
+    // so folders stay reachable, but mark it as a fallback so we can tear it
+    // back down once the sidebar returns. Only mount once per detour.
+    if (this.floatingFallbackActive || this.floatingPanelHandle) return;
+    this.debug('Recovery: sidebar anchor missing — mounting floating fallback');
+    this.folderRecoveryInFlight = true;
+    try {
+      this.floatingFallbackActive = true;
+      await this.openFloatingPanel();
+    } catch (error) {
+      this.floatingFallbackActive = false;
+      this.debugWarn('Recovery: failed to mount floating fallback:', error);
+    } finally {
+      this.folderRecoveryInFlight = false;
+    }
   }
 
   /**
@@ -887,44 +1036,180 @@ export class FolderManager {
     });
   }
 
-  private findRecentSection(): void {
-    if (!this.sidebarContainer) return;
+  /**
+   * Re-query the current Notebooks section element. Only the 2026 layout
+   * exposes this — older layouts return null and the caller falls back to the
+   * Recents anchor. Pure (no instance state touched).
+   */
+  private findNotebooksSectionCandidate(): HTMLElement | null {
+    if (!this.sidebarContainer) return null;
+    const notebooks = this.sidebarContainer.querySelector(
+      'expandable-section[data-test-id="notebooks-expandable-section"]',
+    );
+    return notebooks instanceof HTMLElement ? notebooks : null;
+  }
 
-    // Find conversations-list (Recent section) by looking for the conversations container
-    // Try multiple selectors to find the Recent section
-    let conversationsList = this.sidebarContainer.querySelector(
-      '[data-test-id="all-conversations"]',
+  /**
+   * Resolve the section element the folder panel should anchor immediately
+   * above, honoring the user's `folderAnchor` preference. Falls back to the
+   * Recents section when 'above-notebooks' is requested but the Notebooks
+   * section isn't present (e.g. legacy layout, not signed in to Notebooks).
+   */
+  private findFolderAnchorCandidate(): HTMLElement | null {
+    if (this.folderAnchor === 'above-notebooks') {
+      const notebooks = this.findNotebooksSectionCandidate();
+      if (notebooks) return notebooks;
+    }
+    return this.findRecentSectionCandidate();
+  }
+
+  /**
+   * Pure re-query for the current Recents section element. Returns the
+   * `expandable-section[data-test-id="chats-expandable-section"]` wrapper when
+   * Gemini's new layout is in effect, or one of the legacy containers as a
+   * fallback. Does NOT touch instance state — callers decide whether to update
+   * `this.recentSection`. This is the single place the lookup logic lives so
+   * `findRecentSection` and `enforceFolderAboveRecents` can't drift apart.
+   */
+  private findRecentSectionCandidate(): HTMLElement | null {
+    if (!this.sidebarContainer) return null;
+
+    const promoteToSection = (el: Element | null): Element | null =>
+      el ? (el.closest('expandable-section') ?? el) : null;
+
+    let conversationsList: Element | null = this.sidebarContainer.querySelector(
+      'expandable-section[data-test-id="chats-expandable-section"]',
     );
 
     if (!conversationsList) {
-      // Fallback: find by class name
-      conversationsList = this.sidebarContainer.querySelector('.chat-history');
+      conversationsList = promoteToSection(
+        this.sidebarContainer.querySelector('[data-test-id="all-conversations"]'),
+      );
     }
 
     if (!conversationsList) {
-      // Fallback: find the element that contains conversation items
+      conversationsList = promoteToSection(this.sidebarContainer.querySelector('.chat-history'));
+    }
+
+    if (!conversationsList) {
       const conversationItems = this.sidebarContainer.querySelectorAll(
         '[data-test-id="conversation"]',
       );
       if (conversationItems.length > 0) {
-        // Find the parent that contains these conversations
-        conversationsList = conversationItems[0].closest('.chat-history, [class*="conversation"]');
+        conversationsList =
+          conversationItems[0].closest('expandable-section') ??
+          conversationItems[0].closest('.chat-history, [class*="conversation"]');
       }
     }
 
-    if (conversationsList) {
-      this.recentSection = conversationsList as HTMLElement;
-    } else {
-      this.debugWarn('Could not find Recent section - will retry');
-      // Retry after a delay
-      setTimeout(() => {
-        this.findRecentSection();
-        if (this.recentSection && !this.containerElement) {
-          this.createFolderUI();
-          this.makeConversationsDraggable();
-          this.setupMutationObserver();
-        }
-      }, 2000);
+    return conversationsList instanceof HTMLElement ? conversationsList : null;
+  }
+
+  private findRecentSection(): void {
+    if (!this.sidebarContainer) return;
+
+    // Honor folderAnchor on first injection so the panel lands in the right
+    // slot without needing a follow-up enforcer pass. Falls through to the
+    // Recents candidate when the requested anchor isn't present.
+    const candidate = this.findFolderAnchorCandidate();
+    if (candidate) {
+      this.recentSection = candidate;
+      return;
+    }
+
+    this.debugWarn('Could not find Recent section - will retry');
+    // Retry after a delay
+    setTimeout(() => {
+      this.findRecentSection();
+      if (this.recentSection && !this.containerElement) {
+        this.createFolderUI();
+        this.makeConversationsDraggable();
+        this.setupMutationObserver();
+      }
+    }, 2000);
+  }
+
+  /**
+   * Ensure the folder container is positioned immediately before whichever
+   * section element matches the current `folderAnchor` preference. Gemini
+   * periodically replaces section elements wholesale during the 2026 redesign,
+   * which would leave our folder container stranded below the new anchor.
+   * This is the recovery hook.
+   *
+   * Returns `true` when a move occurred. No-ops (and returns `false`) once the
+   * container is already correctly placed, so it's safe to call from
+   * MutationObserver callbacks without creating an infinite reorder loop.
+   *
+   * Kept under the old name (`...AboveRecents`) because Recents is the default
+   * anchor; semantically it now means "above the current anchor section".
+   */
+  private enforceFolderAboveRecents(): boolean {
+    if (this.isDestroyed) return false;
+    if (!this.folderEnabled || this.floatingModeActive) return false;
+    if (!this.containerElement || !document.body.contains(this.containerElement)) {
+      return false;
+    }
+
+    const anchorSection = this.findFolderAnchorCandidate();
+    if (!anchorSection || !anchorSection.parentElement) return false;
+
+    // Refresh stale reference whenever Gemini replaced the section element.
+    if (this.recentSection !== anchorSection) {
+      this.recentSection = anchorSection;
+    }
+
+    // Piggyback on every enforcer tick to re-attach the Notebooks corner
+    // toggle if Gemini swapped the Notebooks section element. Cheap no-op
+    // when it's already correctly mounted.
+    this.ensureNotebooksAnchorButton();
+
+    const parent = anchorSection.parentElement;
+    const inRightParent = this.containerElement.parentElement === parent;
+    const immediatelyBefore = this.containerElement.nextElementSibling === anchorSection;
+
+    if (inRightParent && immediatelyBefore) return false;
+
+    this.debug('Re-anchoring folder container above', this.folderAnchor);
+    parent.insertBefore(this.containerElement, anchorSection);
+    return true;
+  }
+
+  private scheduleEnforceFolderAboveRecents(): void {
+    if (this.positionEnforceRafId !== null) return;
+    this.positionEnforceRafId = window.requestAnimationFrame(() => {
+      this.positionEnforceRafId = null;
+      this.enforceFolderAboveRecents();
+    });
+  }
+
+  /**
+   * Watch the sidebar for any childList changes and re-enforce position on the
+   * next animation frame. Disconnects any prior observer so this is safe to
+   * call from re-init paths.
+   */
+  private setupPositionEnforcer(): void {
+    if (!this.sidebarContainer) return;
+    if (this.positionObserver) {
+      this.positionObserver.disconnect();
+      this.positionObserver = null;
+    }
+    this.positionObserver = new MutationObserver(() => {
+      this.scheduleEnforceFolderAboveRecents();
+    });
+    this.positionObserver.observe(this.sidebarContainer, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  private teardownPositionEnforcer(): void {
+    if (this.positionObserver) {
+      this.positionObserver.disconnect();
+      this.positionObserver = null;
+    }
+    if (this.positionEnforceRafId !== null) {
+      window.cancelAnimationFrame(this.positionEnforceRafId);
+      this.positionEnforceRafId = null;
     }
   }
 
@@ -957,6 +1242,15 @@ export class FolderManager {
 
     // Apply initial folder enabled setting
     this.applyFolderEnabledSetting();
+
+    // Wire up the position enforcer so future Gemini re-renders that swap the
+    // Recents section element can't strand our folder container below it.
+    this.setupPositionEnforcer();
+
+    // Paint the Notebooks corner swap toggle in its initial state (mounts on
+    // the current Notebooks section, syncs tooltip + active class). The
+    // enforcer keeps it up to date when Gemini re-renders that section.
+    this.ensureNotebooksAnchorButton();
   }
 
   private createMultiSelectIndicator(): HTMLElement {
@@ -1139,34 +1433,23 @@ export class FolderManager {
     actionsContainer.appendChild(filterUserButton);
     actionsContainer.appendChild(importExportButton);
 
-    // Cloud buttons (Skip on Safari as it doesn't support cloud sync yet)
+    // Cloud popover (single button → menu with Upload + Sync). Skipped on Safari.
     if (!isSafari()) {
-      // Cloud upload button
-      const cloudUploadButton = document.createElement('button');
-      cloudUploadButton.className = 'gv-folder-action-btn';
-      cloudUploadButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H520q-33 0-56.5-23.5T440-240v-206l-64 62-56-56 160-160 160 160-56 56-64-62v206h220q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h100v80H260Zm220-280Z"/></svg>`;
-      cloudUploadButton.title = this.t('folder_cloud_upload');
-      cloudUploadButton.addEventListener('click', () => this.handleCloudUpload());
-      // Add dynamic tooltip on mouseenter
-      cloudUploadButton.addEventListener('mouseenter', async () => {
-        const tooltip = await this.getCloudUploadTooltip();
-        cloudUploadButton.title = tooltip;
-      });
-      actionsContainer.appendChild(cloudUploadButton);
-
-      // Cloud sync button
-      const cloudSyncButton = document.createElement('button');
-      cloudSyncButton.className = 'gv-folder-action-btn';
-      cloudSyncButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q17-72 85-137t145-65q33 0 56.5 23.5T520-716v242l64-62 56 56-160 160-160-160 56-56 64 62v-242q-76 14-118 73.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-48-22-89.5T600-680v-93q74 35 117 103.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm220-358Z"/></svg>`;
-      cloudSyncButton.title = this.t('folder_cloud_sync');
-      cloudSyncButton.addEventListener('click', () => this.handleCloudSync());
-      // Add dynamic tooltip on mouseenter
-      cloudSyncButton.addEventListener('mouseenter', async () => {
-        const tooltip = await this.getCloudSyncTooltip();
-        cloudSyncButton.title = tooltip;
-      });
-      actionsContainer.appendChild(cloudSyncButton);
+      const cloudButton = document.createElement('button');
+      cloudButton.className = 'gv-folder-action-btn';
+      cloudButton.innerHTML = `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true">cloud</mat-icon>`;
+      cloudButton.title = this.t('folder_cloud');
+      cloudButton.addEventListener('click', (e) => this.showCloudMenu(e));
+      actionsContainer.appendChild(cloudButton);
     }
+
+    // Folder settings (font size, future folder-scoped settings).
+    const settingsButton = document.createElement('button');
+    settingsButton.className = 'gv-folder-action-btn';
+    settingsButton.innerHTML = `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true">settings</mat-icon>`;
+    settingsButton.title = this.t('folder_settings');
+    settingsButton.addEventListener('click', (e) => this.showFolderSettingsMenu(e));
+    actionsContainer.appendChild(settingsButton);
 
     // Add folder button
     const addButton = document.createElement('button');
@@ -2531,6 +2814,9 @@ export class FolderManager {
         this.nativeMenuObserver.disconnect();
         this.nativeMenuObserver = null;
       }
+
+      this.teardownPositionEnforcer();
+      this.cleanupNotebooksAnchorButton();
 
       if (this.routeChangeCleanup) {
         try {
@@ -6807,6 +7093,143 @@ export class FolderManager {
     }
   }
 
+  private async loadFolderAnchorSetting(): Promise<void> {
+    try {
+      const result = await browser.storage.local.get({
+        [StorageKeys.FOLDERS_ANCHOR]: 'above-recents',
+      });
+      const raw = result[StorageKeys.FOLDERS_ANCHOR];
+      this.folderAnchor = raw === 'above-notebooks' ? 'above-notebooks' : 'above-recents';
+      this.debug('Loaded folder anchor preference:', this.folderAnchor);
+    } catch (error) {
+      console.error('[FolderManager] Failed to load folder anchor preference:', error);
+      this.folderAnchor = 'above-recents';
+    }
+  }
+
+  /**
+   * Flip the folder anchor between 'above-recents' and 'above-notebooks',
+   * persist it, and re-anchor the panel immediately. Persistence triggers the
+   * storage listener too, but we eagerly call the enforcer here so the user
+   * sees the panel jump instantly instead of waiting for the storage echo.
+   */
+  private async toggleFolderAnchor(): Promise<void> {
+    const next: 'above-recents' | 'above-notebooks' =
+      this.folderAnchor === 'above-notebooks' ? 'above-recents' : 'above-notebooks';
+    this.folderAnchor = next;
+    this.refreshNotebooksAnchorButtonState();
+    this.enforceFolderAboveRecents();
+    try {
+      await browser.storage.local.set({ [StorageKeys.FOLDERS_ANCHOR]: next });
+    } catch (error) {
+      console.error('[FolderManager] Failed to persist folder anchor preference:', error);
+    }
+  }
+
+  /**
+   * Build the small hover-reveal swap toggle that paints over the Notebooks
+   * section's top-right corner (taking the slot where the section-hider's eye
+   * used to live). Uses an inline SVG — not a `mat-icon` ligature — because
+   * Gemini ships its own `Luminous Symbols` font that doesn't include
+   * `swap_vert`; the public `Google Symbols` font does, but it's not loaded on
+   * gemini.google.com, so the ligature would render as the literal letter "S".
+   *
+   * Built as `<span role="button">` rather than `<button>` so it can sit
+   * inside Gemini's expandable-section without producing a nested button.
+   */
+  private createNotebooksAnchorButton(): HTMLElement {
+    const btn = document.createElement('span');
+    btn.className = 'gv-folders-anchor-toggle';
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
+    // Material Symbols `swap_vert` path data. Inline so font availability is
+    // a non-issue. viewBox matches the Material Symbols sheet.
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
+      <path d="M320-440v-287L217-624l-57-56 200-200 200 200-57 56-103-103v287h-80Zm320 280L440-360l57-56 103 103v-287h80v287l103-103 57 56-200 200Z"/>
+    </svg>`;
+    btn.addEventListener('click', (e) => {
+      // Stop the click from bubbling to the expandable-section's header
+      // <button> (which would toggle the section open/closed).
+      e.stopPropagation();
+      e.preventDefault();
+      void this.toggleFolderAnchor();
+    });
+    btn.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.stopPropagation();
+      e.preventDefault();
+      void this.toggleFolderAnchor();
+    });
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('mousedown', (e) => e.stopPropagation());
+    return btn;
+  }
+
+  /**
+   * Make sure exactly one swap toggle is mounted on the *current* Notebooks
+   * section. Safe to call on every position-enforcer tick: re-mounts after
+   * Gemini replaces the Notebooks element, no-ops once correctly attached.
+   */
+  private ensureNotebooksAnchorButton(): void {
+    if (this.isDestroyed) return;
+    if (!this.folderEnabled || this.floatingModeActive) {
+      this.cleanupNotebooksAnchorButton();
+      return;
+    }
+
+    const notebooks = this.findNotebooksSectionCandidate();
+    if (!notebooks) {
+      // Legacy layout or signed-out — nothing to paint on.
+      if (this.notebooksAnchorButton && !this.notebooksAnchorButton.isConnected) {
+        this.notebooksAnchorButton = null;
+      }
+      return;
+    }
+
+    const existing = this.notebooksAnchorButton;
+    if (existing && existing.parentElement === notebooks) {
+      this.refreshNotebooksAnchorButtonState();
+      return;
+    }
+
+    // Either no button yet, or the prior section element was replaced.
+    if (existing && existing.isConnected) existing.remove();
+    notebooks.classList.add('gv-folders-anchor-host');
+    const btn = this.createNotebooksAnchorButton();
+    notebooks.appendChild(btn);
+    this.notebooksAnchorButton = btn;
+    this.refreshNotebooksAnchorButtonState();
+  }
+
+  private cleanupNotebooksAnchorButton(): void {
+    if (this.notebooksAnchorButton) {
+      this.notebooksAnchorButton.remove();
+      this.notebooksAnchorButton = null;
+    }
+    // Strip the host class from any lingering Notebooks section so we don't
+    // leave it `position: relative` after the feature shuts down.
+    document
+      .querySelectorAll('expandable-section.gv-folders-anchor-host')
+      .forEach((el) => el.classList.remove('gv-folders-anchor-host'));
+  }
+
+  /**
+   * Sync the swap button's tooltip + active-state class with the current
+   * anchor preference. Tooltip describes the action a click will take (not
+   * the current state) so it stays useful no matter which side folders are on.
+   */
+  private refreshNotebooksAnchorButtonState(): void {
+    const btn = this.notebooksAnchorButton;
+    if (!btn) return;
+    const showsAboveNotebooks = this.folderAnchor === 'above-notebooks';
+    const label = showsAboveNotebooks
+      ? this.t('folder_anchor_move_above_recents')
+      : this.t('folder_anchor_move_above_notebooks');
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.classList.toggle('gv-anchor-above-notebooks', showsAboveNotebooks);
+  }
+
   private async loadHideArchivedSetting(): Promise<void> {
     try {
       const result = await browser.storage.sync.get({
@@ -6990,6 +7413,8 @@ export class FolderManager {
               this.sideNavObserver.disconnect();
               this.sideNavObserver = null;
             }
+            this.teardownPositionEnforcer();
+            this.cleanupNotebooksAnchorButton();
             void this.startFloatingMode();
           } else {
             // Switch to sidebar: tear down floating, then ask the existing
@@ -7052,6 +7477,19 @@ export class FolderManager {
       if (areaName === 'local' && changes[this.activeStorageKey]) {
         this.debug('Folder data changed in chrome.storage.local, reloading...');
         this.reloadFoldersFromStorage();
+      }
+      // Folder anchor preference (local-only) — re-anchor the panel without
+      // a full reinit. Mirrors `toggleFolderAnchor` for the cross-tab case.
+      if (areaName === 'local' && changes[StorageKeys.FOLDERS_ANCHOR]) {
+        const raw = changes[StorageKeys.FOLDERS_ANCHOR].newValue;
+        const next: 'above-recents' | 'above-notebooks' =
+          raw === 'above-notebooks' ? 'above-notebooks' : 'above-recents';
+        if (next !== this.folderAnchor) {
+          this.folderAnchor = next;
+          this.debug('Folder anchor changed via storage event:', next);
+          this.refreshNotebooksAnchorButtonState();
+          this.enforceFolderAboveRecents();
+        }
       }
     });
 
@@ -7800,6 +8238,10 @@ export class FolderManager {
       emptyState.textContent = this.t('folder_empty');
     }
 
+    // Notebooks corner swap toggle is mounted on the Notebooks section, not
+    // inside our container — refresh its tooltip in the now-current locale.
+    this.refreshNotebooksAnchorButtonState();
+
     this.debug('Header language text updated');
   }
 
@@ -8456,9 +8898,15 @@ export class FolderManager {
   }
 
   /**
-   * Show import/export dropdown menu
+   * Generic header dropdown menu opener. Used by import/export, cloud, and any
+   * other header action that wants a "click button → click an item" popover.
+   * Reuses the activeImportExportMenu slot so only one header menu is open at
+   * a time across the entire header.
    */
-  private showImportExportMenu(event: MouseEvent): void {
+  private openHeaderMenu(
+    event: MouseEvent,
+    items: Array<{ label: string; icon?: string; iconHtml?: string; action: () => void }>,
+  ): void {
     event.stopPropagation();
 
     if (this.activeImportExportMenu && !this.activeImportExportMenu.isConnected) {
@@ -8466,37 +8914,24 @@ export class FolderManager {
       this.removeActiveImportExportMenuCloseHandler();
     }
 
-    // Remove existing menu if already open (toggle behavior)
     if (this.activeImportExportMenu) {
       this.closeActiveImportExportMenu();
       return;
     }
 
-    // Create context menu
     const menu = document.createElement('div');
     menu.className = 'gv-folder-menu';
     menu.style.position = 'fixed';
     menu.style.left = `${event.clientX}px`;
     menu.style.top = `${event.clientY}px`;
 
-    const menuItems = [
-      {
-        label: this.t('folder_import'),
-        icon: 'upload',
-        action: () => this.showImportDialog(),
-      },
-      {
-        label: this.t('folder_export'),
-        icon: 'download',
-        action: () => this.exportFolders(),
-      },
-    ];
-
-    menuItems.forEach((item) => {
+    items.forEach((item) => {
       const menuItem = document.createElement('button');
       menuItem.className = 'gv-folder-menu-item';
-
-      menuItem.innerHTML = `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true" style="font-size: 18px; line-height: 1; margin-right: 8px;">${item.icon}</mat-icon>${item.label}`;
+      const iconMarkup = item.iconHtml
+        ? `<span class="gv-folder-menu-icon" aria-hidden="true">${item.iconHtml}</span>`
+        : `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true" style="font-size: 18px; line-height: 1; margin-right: 8px;">${item.icon ?? ''}</mat-icon>`;
+      menuItem.innerHTML = `${iconMarkup}${item.label}`;
       menuItem.addEventListener('click', () => {
         this.closeActiveImportExportMenu();
         item.action();
@@ -8505,11 +8940,8 @@ export class FolderManager {
     });
 
     document.body.appendChild(menu);
-
-    // Track this menu as the active one
     this.activeImportExportMenu = menu;
 
-    // Close menu on click outside
     const closeMenu = (e: MouseEvent) => {
       if (!menu.contains(e.target as Node)) {
         this.closeActiveImportExportMenu();
@@ -8520,6 +8952,218 @@ export class FolderManager {
       document.addEventListener('click', closeMenu);
       this.activeImportExportMenuListenerTimeout = null;
     }, 0);
+  }
+
+  /**
+   * Show import/export dropdown menu
+   */
+  private showImportExportMenu(event: MouseEvent): void {
+    this.openHeaderMenu(event, [
+      {
+        label: this.t('folder_import'),
+        icon: 'upload',
+        action: () => this.showImportDialog(),
+      },
+      {
+        label: this.t('folder_export'),
+        icon: 'download',
+        action: () => this.exportFolders(),
+      },
+    ]);
+  }
+
+  /**
+   * Cloud popover — replaces the previous two-button Upload/Sync split.
+   * Uses the original inline SVG glyphs because Gemini's bundled Material
+   * Symbols font does not include `cloud_upload` / `cloud_download` ligatures.
+   */
+  private showCloudMenu(event: MouseEvent): void {
+    const uploadSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H520q-33 0-56.5-23.5T440-240v-206l-64 62-56-56 160-160 160 160-56 56-64-62v206h220q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h100v80H260Zm220-280Z"/></svg>`;
+    const syncSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q17-72 85-137t145-65q33 0 56.5 23.5T520-716v242l64-62 56 56-160 160-160-160 56-56 64 62v-242q-76 14-118 73.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-48-22-89.5T600-680v-93q74 35 117 103.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm220-358Z"/></svg>`;
+
+    this.openHeaderMenu(event, [
+      {
+        label: this.t('folder_cloud_upload'),
+        iconHtml: uploadSvg,
+        action: () => {
+          void this.handleCloudUpload();
+        },
+      },
+      {
+        label: this.t('folder_cloud_sync'),
+        iconHtml: syncSvg,
+        action: () => {
+          void this.handleCloudSync();
+        },
+      },
+    ]);
+  }
+
+  /**
+   * Folder settings popover. Hosts folder-scoped settings (font size, spacing,
+   * subfolder indent). Settings live next to the feature they control so users
+   * don't have to dig into the popup to tune them.
+   */
+  private showFolderSettingsMenu(event: MouseEvent): void {
+    event.stopPropagation();
+
+    if (this.activeImportExportMenu && !this.activeImportExportMenu.isConnected) {
+      this.activeImportExportMenu = null;
+      this.removeActiveImportExportMenuCloseHandler();
+    }
+
+    if (this.activeImportExportMenu) {
+      this.closeActiveImportExportMenu();
+      return;
+    }
+
+    const menu = document.createElement('div');
+    menu.className = 'gv-folder-menu gv-folder-settings-menu';
+    menu.style.position = 'fixed';
+    menu.style.left = `${event.clientX}px`;
+    menu.style.top = `${event.clientY}px`;
+
+    const steppers: Array<{
+      labelKey: string;
+      storageKey: string;
+      min: number;
+      max: number;
+      defaultValue: number;
+      unit?: string;
+    }> = [
+      {
+        labelKey: 'folder_item_font_size',
+        storageKey: StorageKeys.GV_FOLDER_ITEM_FONT_SIZE,
+        min: 12,
+        max: 18,
+        defaultValue: 13,
+        unit: 'px',
+      },
+      {
+        labelKey: 'folderSpacing',
+        storageKey: StorageKeys.GV_FOLDER_SPACING,
+        min: 0,
+        max: 16,
+        defaultValue: 2,
+      },
+      {
+        labelKey: 'folderTreeIndent',
+        storageKey: StorageKeys.GV_FOLDER_TREE_INDENT,
+        min: -8,
+        max: 32,
+        defaultValue: -8,
+      },
+    ];
+
+    steppers.forEach((config) => {
+      menu.appendChild(this.createSettingsStepperRow(config));
+    });
+
+    // Swallow clicks that originated inside the settings menu so a stepper press
+    // can't bubble up to the document-level "click outside → close" handler. This
+    // is a belt-and-suspenders layer on top of per-button stopPropagation, since
+    // some browsers re-target clicks when the focused element becomes disabled
+    // mid-event.
+    menu.addEventListener('click', (e) => e.stopPropagation());
+
+    document.body.appendChild(menu);
+    this.activeImportExportMenu = menu;
+
+    const closeMenu = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        this.closeActiveImportExportMenu();
+      }
+    };
+    this.activeImportExportMenuCloseHandler = closeMenu;
+    this.activeImportExportMenuListenerTimeout = window.setTimeout(() => {
+      document.addEventListener('click', closeMenu);
+      this.activeImportExportMenuListenerTimeout = null;
+    }, 0);
+  }
+
+  private createSettingsStepperRow(config: {
+    labelKey: string;
+    storageKey: string;
+    min: number;
+    max: number;
+    defaultValue: number;
+    unit?: string;
+  }): HTMLElement {
+    const { labelKey, storageKey, min, max, defaultValue, unit } = config;
+    const clamp = (n: number) =>
+      Math.min(max, Math.max(min, Math.round(Number.isFinite(n) ? n : defaultValue)));
+
+    const row = document.createElement('div');
+    row.className = 'gv-folder-settings-row';
+
+    const label = document.createElement('span');
+    label.className = 'gv-folder-settings-label';
+    label.textContent = this.t(labelKey);
+
+    const stepper = document.createElement('div');
+    stepper.className = 'gv-folder-stepper';
+
+    const minus = document.createElement('button');
+    minus.className = 'gv-folder-stepper-btn';
+    minus.type = 'button';
+    minus.innerHTML = `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true">remove</mat-icon>`;
+    minus.title = this.t('folder_item_font_size_decrease');
+
+    const value = document.createElement('span');
+    value.className = 'gv-folder-stepper-value';
+
+    const plus = document.createElement('button');
+    plus.className = 'gv-folder-stepper-btn';
+    plus.type = 'button';
+    plus.innerHTML = `<mat-icon role="img" class="mat-icon notranslate google-symbols mat-ligature-font mat-icon-no-color" aria-hidden="true">add</mat-icon>`;
+    plus.title = this.t('folder_item_font_size_increase');
+
+    let current = defaultValue;
+
+    const render = () => {
+      value.textContent = unit ? `${current}${unit}` : `${current}`;
+      minus.disabled = current <= min;
+      plus.disabled = current >= max;
+    };
+
+    const persist = (next: number) => {
+      current = clamp(next);
+      render();
+      try {
+        void chrome.storage.sync.set({ [storageKey]: current });
+      } catch (err) {
+        console.warn(`[FolderManager] Failed to save ${storageKey}:`, err);
+      }
+    };
+
+    minus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      persist(current - 1);
+    });
+    plus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      persist(current + 1);
+    });
+
+    try {
+      void chrome.storage.sync.get({ [storageKey]: defaultValue }).then((res) => {
+        const raw = (res as Record<string, unknown>)?.[storageKey];
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        current = Number.isFinite(n) ? clamp(n) : defaultValue;
+        render();
+      });
+    } catch {
+      // Fall through to default render below.
+    }
+    render();
+
+    stepper.appendChild(minus);
+    stepper.appendChild(value);
+    stepper.appendChild(plus);
+
+    row.appendChild(label);
+    row.appendChild(stepper);
+    return row;
   }
 
   /**

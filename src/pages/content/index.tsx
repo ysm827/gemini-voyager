@@ -22,12 +22,15 @@ import { startEditInputWidthAdjuster } from './editInputWidth/index';
 import { startExportButton } from './export/index';
 import { startAIStudioFolderManager } from './folder/aistudio';
 import { startFolderManager } from './folder/index';
+import { startFolderItemFontSizeAdjuster } from './folderItemFontSize/index';
 import { startFolderProject } from './folderProject/index';
 import { startFolderSpacingAdjuster } from './folderSpacing/index';
 import { isForkFeatureEnabledValue } from './fork/featureFlag';
 import { startFork } from './fork/index';
 import { startGemsHider } from './gemsHider/index';
+import { startGemsSidebar } from './gemsSidebar/index';
 import { startInputCollapse } from './inputCollapse/index';
+import { startInputHaloHider } from './inputHaloHider/index';
 import { initKaTeXConfig } from './katexConfig';
 import { startMarkdownPatcher } from './markdownPatcher/index';
 import { startMermaid } from './mermaid/index';
@@ -81,6 +84,7 @@ let inputVimModeCleanup: (() => void) | null = null;
 let sendBehaviorCleanup: (() => void) | null = null;
 let draftSaveCleanup: (() => void) | null = null;
 let forkCleanup: (() => void) | null = null;
+let gemsSidebarCleanup: (() => void) | null = null;
 
 async function isForkFeatureEnabled(): Promise<boolean> {
   try {
@@ -185,6 +189,9 @@ async function initializeFeatures(): Promise<void> {
       startFolderSpacingAdjuster('gemini');
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
+      startFolderItemFontSizeAdjuster();
+      await delay(LIGHT_FEATURE_INIT_DELAY);
+
       startChatWidthAdjuster();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
@@ -209,6 +216,9 @@ async function initializeFeatures(): Promise<void> {
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       startInputCollapse();
+      await delay(LIGHT_FEATURE_INIT_DELAY);
+
+      startInputHaloHider();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       inputVimModeCleanup = await startInputVimMode();
@@ -265,6 +275,12 @@ async function initializeFeatures(): Promise<void> {
 
       // Gems hider - hide/show toggle for Gems list section
       startGemsHider();
+      await delay(LIGHT_FEATURE_INIT_DELAY);
+
+      // Gems sidebar — recent gems list injected above Notebooks, populated
+      // from a local cache that's refreshed whenever the user visits the
+      // /gems/view management page. Count is controlled from the popup.
+      gemsSidebarCleanup = await startGemsSidebar();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       // Markdown Patcher - fixes broken bold tags due to HTML injection
@@ -518,6 +534,10 @@ function handleVisibilityChange(): void {
         if (forkCleanup) {
           forkCleanup();
           forkCleanup = null;
+        }
+        if (gemsSidebarCleanup) {
+          gemsSidebarCleanup();
+          gemsSidebarCleanup = null;
         }
         chrome.storage?.onChanged?.removeListener(onStorageChanged);
       } catch (e) {

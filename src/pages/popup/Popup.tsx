@@ -61,6 +61,7 @@ const POPUP_SECTION_IDS = [
   'folder',
   'folderSpacing',
   'folderTreeIndent',
+  'gemsSidebar',
   'chatWidth',
   'chatFontSize',
   'chatLineHeight',
@@ -265,6 +266,9 @@ const normalizePercent = (
 
 const FOLDER_SPACING = { min: 0, max: 16, defaultValue: 2 };
 const FOLDER_TREE_INDENT = { min: -8, max: 32, defaultValue: -8 };
+// Gems sidebar count: 0 disables the section entirely (no UI), 1-10 shows
+// that many recent gems above Notebooks.
+const GEMS_SIDEBAR_COUNT = { min: 0, max: 10, defaultValue: 3 };
 const CHAT_PERCENT = { min: 30, max: 100, defaultValue: 70, legacyBaselinePx: LEGACY_BASELINE_PX };
 const CHAT_FONT_SIZE = { min: 80, max: 150, defaultValue: 100 };
 const CHAT_LINE_HEIGHT = { min: 120, max: 220, defaultValue: 160 };
@@ -343,6 +347,7 @@ interface SettingsUpdate {
   sidebarFullHideEnabled?: boolean;
   visualEffect?: 'off' | 'snow' | 'sakura' | 'rain';
   preventAutoScrollEnabled?: boolean;
+  inputHaloHidden?: boolean;
   forkEnabled?: boolean;
   accountIsolationEnabled?: boolean;
   accountIsolationPlatform?: AccountPlatform;
@@ -460,6 +465,7 @@ export default function Popup() {
   const [sidebarFullHideEnabled, setSidebarFullHideEnabled] = useState<boolean>(false);
   const [visualEffect, setVisualEffect] = useState<'off' | 'snow' | 'sakura' | 'rain'>('off');
   const [preventAutoScrollEnabled, setPreventAutoScrollEnabled] = useState<boolean>(false);
+  const [inputHaloHidden, setInputHaloHidden] = useState<boolean>(false);
   const [forkEnabled, setForkEnabled] = useState<boolean>(false);
   const [chatWidthEnabled, setChatWidthEnabled] = useState<boolean>(false);
   const [chatFontSizeEnabled, setChatFontSizeEnabled] = useState<boolean>(false);
@@ -585,6 +591,8 @@ export default function Popup() {
       }
       if (typeof settings.preventAutoScrollEnabled === 'boolean')
         payload.gvPreventAutoScrollEnabled = settings.preventAutoScrollEnabled;
+      if (typeof settings.inputHaloHidden === 'boolean')
+        payload[StorageKeys.INPUT_HALO_HIDDEN] = settings.inputHaloHidden;
       if (typeof settings.forkEnabled === 'boolean')
         payload[StorageKeys.FORK_ENABLED] = settings.forkEnabled;
       if (typeof settings.accountIsolationEnabled === 'boolean') {
@@ -780,6 +788,21 @@ export default function Popup() {
     }, []),
   });
 
+  // Gems sidebar count — 0 hides the section, 1-10 controls how many recent
+  // gems show above Notebooks. Persists to chrome.storage.sync so the
+  // preference follows the user across devices.
+  const gemsSidebarCountAdjuster = useWidthAdjuster({
+    storageKey: StorageKeys.GV_GEMS_SIDEBAR_COUNT,
+    defaultValue: GEMS_SIDEBAR_COUNT.defaultValue,
+    normalize: (v) => clampNumber(v, GEMS_SIDEBAR_COUNT.min, GEMS_SIDEBAR_COUNT.max),
+    onApply: useCallback((count: number) => {
+      const clamped = clampNumber(count, GEMS_SIDEBAR_COUNT.min, GEMS_SIDEBAR_COUNT.max);
+      try {
+        chrome.storage?.sync?.set({ [StorageKeys.GV_GEMS_SIDEBAR_COUNT]: clamped });
+      } catch {}
+    }, []),
+  });
+
   useEffect(() => {
     try {
       const version = chrome?.runtime?.getManifest?.()?.version;
@@ -933,6 +956,7 @@ export default function Popup() {
           gvVisualEffect: 'off',
           gvSnowEffect: false,
           gvPreventAutoScrollEnabled: false,
+          [StorageKeys.INPUT_HALO_HIDDEN]: false,
           [StorageKeys.FORK_ENABLED]: false,
           [StorageKeys.GV_ACCOUNT_ISOLATION_ENABLED]: false,
           [StorageKeys.GV_ACCOUNT_ISOLATION_ENABLED_GEMINI]: null,
@@ -1010,6 +1034,7 @@ export default function Popup() {
             setVisualEffect('off');
           }
           setPreventAutoScrollEnabled(res?.gvPreventAutoScrollEnabled === true);
+          setInputHaloHidden(res?.[StorageKeys.INPUT_HALO_HIDDEN] === true);
           setForkEnabled(res?.[StorageKeys.FORK_ENABLED] === true);
           setAiStudioEnabled(res?.[StorageKeys.GV_AISTUDIO_ENABLED] !== false);
 
@@ -1909,6 +1934,23 @@ export default function Popup() {
               onChangeComplete={folderTreeIndentAdjuster.handleChangeComplete}
             />,
           )}
+        {/* Gems sidebar — only on gemini.google.com, not AI Studio */}
+        {!isAIStudio &&
+          wrapSection(
+            'gemsSidebar',
+            <WidthSlider
+              label={t('gemsSidebarCount')}
+              value={gemsSidebarCountAdjuster.width}
+              min={GEMS_SIDEBAR_COUNT.min}
+              max={GEMS_SIDEBAR_COUNT.max}
+              step={1}
+              narrowLabel={t('gemsSidebarCountOff')}
+              wideLabel={t('gemsSidebarCountMany')}
+              valueFormatter={(v) => (v === 0 ? t('gemsSidebarCountOff') : String(v))}
+              onChange={gemsSidebarCountAdjuster.handleChange}
+              onChangeComplete={gemsSidebarCountAdjuster.handleChangeComplete}
+            />,
+          )}
         {/* Chat Width */}
         {wrapSection(
           'chatWidth',
@@ -2648,6 +2690,25 @@ export default function Popup() {
                   onChange={(e) => {
                     setQuoteReplyEnabled(e.target.checked);
                     apply({ quoteReplyEnabled: e.target.checked });
+                  }}
+                />
+              </div>
+              <div className="group flex items-center justify-between">
+                <div className="flex-1">
+                  <Label
+                    htmlFor="input-halo-hidden"
+                    className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                  >
+                    {t('hideInputHalo')}
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-xs">{t('hideInputHaloHint')}</p>
+                </div>
+                <Switch
+                  id="input-halo-hidden"
+                  checked={inputHaloHidden}
+                  onChange={(e) => {
+                    setInputHaloHidden(e.target.checked);
+                    apply({ inputHaloHidden: e.target.checked });
                   }}
                 />
               </div>
