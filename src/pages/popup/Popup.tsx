@@ -80,6 +80,16 @@ const POPUP_SECTION_IDS = [
 type PopupSectionId = (typeof POPUP_SECTION_IDS)[number];
 
 const DEFAULT_SECTION_ORDER: readonly PopupSectionId[] = POPUP_SECTION_IDS;
+const VALUE_BADGE_SECTION_IDS = new Set<PopupSectionId>([
+  'folderSpacing',
+  'folderTreeIndent',
+  'gemsSidebar',
+  'chatWidth',
+  'chatFontSize',
+  'chatLineHeight',
+  'editInputWidth',
+  'sidebarWidth',
+]);
 
 const ROOT_CONVERSATIONS_ID = '__root_conversations__';
 
@@ -339,6 +349,7 @@ interface SettingsUpdate {
   tabTitleUpdateEnabled?: boolean;
   mermaidEnabled?: boolean;
   quoteReplyEnabled?: boolean;
+  defaultModelAutoApplyEnabled?: boolean;
   ctrlEnterSendEnabled?: boolean;
   aiStudioEnterSendEnabled?: boolean;
   safariEnterFixEnabled?: boolean;
@@ -354,11 +365,13 @@ interface SettingsUpdate {
   aiStudioEnabled?: boolean;
   showMessageTimestamps?: boolean;
   folderProjectEnabled?: boolean;
+  persistentExportToolbarEnabled?: boolean;
 }
 
 function SectionReorderControls({
   isFirst,
   isLast,
+  hasValueBadge,
   onMoveUp,
   onMoveDown,
   moveUpLabel,
@@ -366,13 +379,22 @@ function SectionReorderControls({
 }: {
   isFirst: boolean;
   isLast: boolean;
+  hasValueBadge: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   moveUpLabel: string;
   moveDownLabel: string;
 }) {
+  const positionClass = hasValueBadge ? 'top-px' : 'top-1';
+  const buttonClass = hasValueBadge
+    ? 'text-muted-foreground hover:text-foreground hover:bg-secondary/80 flex h-4 w-4 items-center justify-center rounded-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30'
+    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-sm p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30';
+  const iconSize = hasValueBadge ? 12 : 14;
+
   return (
-    <div className="absolute -top-1 right-1 z-10 flex gap-px rounded-md opacity-0 transition-opacity group-hover/reorder:opacity-100">
+    <div
+      className={`absolute ${positionClass} right-1 z-10 flex gap-px rounded-md opacity-0 transition-opacity group-hover/reorder:opacity-100`}
+    >
       <button
         type="button"
         onClick={(e) => {
@@ -380,13 +402,13 @@ function SectionReorderControls({
           onMoveUp();
         }}
         disabled={isFirst}
-        className="text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-sm p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+        className={buttonClass}
         aria-label={moveUpLabel}
         title={moveUpLabel}
       >
         <svg
-          width="14"
-          height="14"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -404,13 +426,13 @@ function SectionReorderControls({
           onMoveDown();
         }}
         disabled={isLast}
-        className="text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-sm p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+        className={buttonClass}
         aria-label={moveDownLabel}
         title={moveDownLabel}
       >
         <svg
-          width="14"
-          height="14"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -456,6 +478,7 @@ export default function Popup() {
   const [mermaidEnabled, setMermaidEnabled] = useState<boolean>(true);
   const [showMessageTimestamps, setShowMessageTimestamps] = useState<boolean>(false);
   const [quoteReplyEnabled, setQuoteReplyEnabled] = useState<boolean>(true);
+  const [defaultModelAutoApplyEnabled, setDefaultModelAutoApplyEnabled] = useState<boolean>(true);
   const [folderProjectEnabled, setFolderProjectEnabled] = useState<boolean>(false);
   const [ctrlEnterSendEnabled, setCtrlEnterSendEnabled] = useState<boolean>(false);
   const [aiStudioEnterSendEnabled, setAiStudioEnterSendEnabled] = useState<boolean>(false);
@@ -477,6 +500,8 @@ export default function Popup() {
   const [accountIsolationEnabledAIStudio, setAccountIsolationEnabledAIStudio] =
     useState<boolean>(false);
   const [aiStudioEnabled, setAiStudioEnabled] = useState<boolean>(true);
+  const [persistentExportToolbarEnabled, setPersistentExportToolbarEnabled] =
+    useState<boolean>(true);
   const [activeAccountPlatform, setActiveAccountPlatform] = useState<AccountPlatform>('gemini');
   const [aiStructureCopyStatus, setAiStructureCopyStatus] = useState<
     'idle' | 'loading' | 'copied' | 'error'
@@ -570,6 +595,8 @@ export default function Popup() {
         payload.gvMermaidEnabled = settings.mermaidEnabled;
       if (typeof settings.quoteReplyEnabled === 'boolean')
         payload.gvQuoteReplyEnabled = settings.quoteReplyEnabled;
+      if (typeof settings.defaultModelAutoApplyEnabled === 'boolean')
+        payload[StorageKeys.DEFAULT_MODEL_AUTO_APPLY] = settings.defaultModelAutoApplyEnabled;
       if (typeof settings.folderProjectEnabled === 'boolean')
         payload[StorageKeys.FOLDER_PROJECT_ENABLED] = settings.folderProjectEnabled;
       if (typeof settings.ctrlEnterSendEnabled === 'boolean')
@@ -604,6 +631,9 @@ export default function Popup() {
         payload[StorageKeys.GV_AISTUDIO_ENABLED] = settings.aiStudioEnabled;
       if (typeof settings.showMessageTimestamps === 'boolean')
         payload[StorageKeys.GV_SHOW_MESSAGE_TIMESTAMPS] = settings.showMessageTimestamps;
+      if (typeof settings.persistentExportToolbarEnabled === 'boolean')
+        payload[StorageKeys.PERSISTENT_EXPORT_TOOLBAR_ENABLED] =
+          settings.persistentExportToolbarEnabled;
       void setSyncStorage(payload);
     },
     [activeAccountPlatform, setSyncStorage],
@@ -946,6 +976,7 @@ export default function Popup() {
           gvTabTitleUpdateEnabled: true,
           gvMermaidEnabled: true,
           gvQuoteReplyEnabled: true,
+          [StorageKeys.DEFAULT_MODEL_AUTO_APPLY]: true,
           [StorageKeys.FOLDER_PROJECT_ENABLED]: false,
           gvCtrlEnterSend: false,
           [StorageKeys.AISTUDIO_ENTER_SEND]: false,
@@ -972,6 +1003,7 @@ export default function Popup() {
           geminiChatWidth: CHAT_PERCENT.defaultValue,
           geminiEditInputWidth: EDIT_PERCENT.defaultValue,
           [StorageKeys.GV_SHOW_MESSAGE_TIMESTAMPS]: false,
+          [StorageKeys.PERSISTENT_EXPORT_TOOLBAR_ENABLED]: true,
           [StorageKeys.GV_POPUP_SECTION_ORDER]: null,
         },
         (res) => {
@@ -1013,6 +1045,7 @@ export default function Popup() {
           setTabTitleUpdateEnabled(res?.gvTabTitleUpdateEnabled !== false);
           setMermaidEnabled(res?.gvMermaidEnabled !== false);
           setQuoteReplyEnabled(res?.gvQuoteReplyEnabled !== false);
+          setDefaultModelAutoApplyEnabled(res?.[StorageKeys.DEFAULT_MODEL_AUTO_APPLY] !== false);
           setFolderProjectEnabled(res?.[StorageKeys.FOLDER_PROJECT_ENABLED] === true);
           setCtrlEnterSendEnabled(res?.gvCtrlEnterSend === true);
           setAiStudioEnterSendEnabled(res?.[StorageKeys.AISTUDIO_ENTER_SEND] === true);
@@ -1037,6 +1070,9 @@ export default function Popup() {
           setInputHaloHidden(res?.[StorageKeys.INPUT_HALO_HIDDEN] === true);
           setForkEnabled(res?.[StorageKeys.FORK_ENABLED] === true);
           setAiStudioEnabled(res?.[StorageKeys.GV_AISTUDIO_ENABLED] !== false);
+          setPersistentExportToolbarEnabled(
+            res?.[StorageKeys.PERSISTENT_EXPORT_TOOLBAR_ENABLED] !== false,
+          );
 
           // Width enabled flags — auto-enable if user previously customized the width
           setChatWidthEnabled(
@@ -1386,6 +1422,7 @@ export default function Popup() {
       <SectionReorderControls
         isFirst={visibleSections[0] === id}
         isLast={visibleSections[visibleSections.length - 1] === id}
+        hasValueBadge={VALUE_BADGE_SECTION_IDS.has(id)}
         onMoveUp={() => moveSectionInOrder(id, 'up')}
         onMoveDown={() => moveSectionInOrder(id, 'down')}
         moveUpLabel={t('moveSectionUp')}
@@ -2656,6 +2693,27 @@ export default function Popup() {
               <div className="group flex items-center justify-between">
                 <div className="flex-1">
                   <Label
+                    htmlFor="persistent-export-toolbar"
+                    className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                  >
+                    {t('persistentExportToolbar')}
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {t('persistentExportToolbarHint')}
+                  </p>
+                </div>
+                <Switch
+                  id="persistent-export-toolbar"
+                  checked={persistentExportToolbarEnabled}
+                  onChange={(e) => {
+                    setPersistentExportToolbarEnabled(e.target.checked);
+                    apply({ persistentExportToolbarEnabled: e.target.checked });
+                  }}
+                />
+              </div>
+              <div className="group flex items-center justify-between">
+                <div className="flex-1">
+                  <Label
                     htmlFor="mermaid-enabled"
                     className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
                   >
@@ -2709,6 +2767,27 @@ export default function Popup() {
                   onChange={(e) => {
                     setInputHaloHidden(e.target.checked);
                     apply({ inputHaloHidden: e.target.checked });
+                  }}
+                />
+              </div>
+              <div className="group flex items-center justify-between">
+                <div className="flex-1">
+                  <Label
+                    htmlFor="default-model-auto-apply"
+                    className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                  >
+                    {t('enableDefaultModelAutoApply')}
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {t('enableDefaultModelAutoApplyHint')}
+                  </p>
+                </div>
+                <Switch
+                  id="default-model-auto-apply"
+                  checked={defaultModelAutoApplyEnabled}
+                  onChange={(e) => {
+                    setDefaultModelAutoApplyEnabled(e.target.checked);
+                    apply({ defaultModelAutoApplyEnabled: e.target.checked });
                   }}
                 />
               </div>
