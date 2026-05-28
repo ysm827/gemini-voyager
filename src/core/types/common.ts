@@ -83,6 +83,7 @@ export const StorageKeys = {
   PROMPT_THEME: 'gvPromptTheme',
   PROMPT_INSERT_ON_CLICK: 'gvPromptInsertOnClick',
   PROMPT_VIEW_MODE: 'gvPromptViewMode',
+  PROMPT_PANEL_VIEW: 'gvPromptPanelView',
 
   // Global settings
   LANGUAGE: 'language',
@@ -98,6 +99,7 @@ export const StorageKeys = {
   TAB_TITLE_UPDATE_ENABLED: 'gvTabTitleUpdateEnabled',
   MERMAID_ENABLED: 'gvMermaidEnabled',
   QUOTE_REPLY_ENABLED: 'gvQuoteReplyEnabled',
+  RESPONSE_COMPLETE_NOTIFICATION_ENABLED: 'gvResponseCompleteNotificationEnabled',
 
   // Input behavior
   CTRL_ENTER_SEND: 'gvCtrlEnterSend',

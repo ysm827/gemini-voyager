@@ -231,6 +231,34 @@
     "message": "Название (необязательно)",
     "description": "Placeholder for the optional prompt name/label input used as the compact-mode headline"
   },
+  "pm_prompt_manager": {
+    "message": "Менеджер промптов",
+    "description": "Button label for returning from the starred library to Prompt Manager"
+  },
+  "pm_starred_library": {
+    "message": "Избранная библиотека",
+    "description": "Prompt Manager starred messages library title and entry button"
+  },
+  "pm_starred_search_placeholder": {
+    "message": "Поиск по избранным сообщениям",
+    "description": "Search placeholder for starred messages in Prompt Manager"
+  },
+  "pm_starred_no_results": {
+    "message": "Нет избранных сообщений по вашему запросу",
+    "description": "Empty state when starred search has no matches"
+  },
+  "pm_starred_untitled": {
+    "message": "Беседа без названия",
+    "description": "Fallback title for starred messages without a conversation title"
+  },
+  "pm_starred_open": {
+    "message": "Открыть избранное сообщение",
+    "description": "Tooltip for opening a starred message from Prompt Manager"
+  },
+  "pm_starred_load_error": {
+    "message": "Не удалось загрузить избранные сообщения",
+    "description": "Error shown when starred messages cannot be loaded"
+  },
   "pm_theme_dark": {
     "message": "Переключить на тёмную тему",
     "description": "Theme toggle tooltip - switch to dark"
@@ -1815,6 +1843,10 @@
     "message": "Ошибка — сначала откройте Gemini",
     "description": "Ошибка при копировании промпта организации ИИ"
   },
+  "aiOrgNoConversations": {
+    "message": "Чаты не найдены — откройте и прокрутите список чатов, затем повторите попытку",
+    "description": "Текст кнопки, когда не удалось прочитать ни одной беседы для ИИ-организации"
+  },
   "aiOrgCopyHint": {
     "message": "Копирует все разговоры и структуру папок в виде промпта. Вставьте в Gemini, чтобы получить импортируемый план папок.",
     "description": "Текст подсказки под кнопкой копирования организации ИИ"
@@ -1990,5 +2022,25 @@
   "folder_new_chat_in_folder": {
     "message": "Новый чат в этой папке",
     "description": "Folder context menu item to create a new chat and auto-assign it to this folder"
+  },
+  "responseCompleteNotification": {
+    "message": "Уведомления о завершении ответа",
+    "description": "Gemini response completion notification toggle"
+  },
+  "responseCompleteNotificationHint": {
+    "message": "Отправлять системное уведомление, когда Gemini завершает ответ.",
+    "description": "Gemini response completion notification hint"
+  },
+  "responseCompleteNotificationHintSafari": {
+    "message": "Safari не поддерживает системные уведомления расширений; Voyager покажет подсказку на странице, когда вы вернётесь.",
+    "description": "Safari-specific hint for response completion notifications"
+  },
+  "responseCompleteNotificationMessage": {
+    "message": "Ответ Gemini завершён",
+    "description": "Текст системного уведомления, когда Gemini завершает ответ"
+  },
+  "responseCompleteForegroundToast": {
+    "message": "Новый ответ завершён",
+    "description": "Текст всплывающего уведомления, когда ответ Gemini завершён вне экрана"
   }
 }

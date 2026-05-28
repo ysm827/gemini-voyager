@@ -231,6 +231,34 @@
     "message": "名前（任意）",
     "description": "Placeholder for the optional prompt name/label input used as the compact-mode headline"
   },
+  "pm_prompt_manager": {
+    "message": "プロンプトマネージャー",
+    "description": "Button label for returning from the starred library to Prompt Manager"
+  },
+  "pm_starred_library": {
+    "message": "スター付きライブラリ",
+    "description": "Prompt Manager starred messages library title and entry button"
+  },
+  "pm_starred_search_placeholder": {
+    "message": "スター付きメッセージを検索",
+    "description": "Search placeholder for starred messages in Prompt Manager"
+  },
+  "pm_starred_no_results": {
+    "message": "検索に一致するスター付きメッセージはありません",
+    "description": "Empty state when starred search has no matches"
+  },
+  "pm_starred_untitled": {
+    "message": "無題の会話",
+    "description": "Fallback title for starred messages without a conversation title"
+  },
+  "pm_starred_open": {
+    "message": "スター付きメッセージを開く",
+    "description": "Tooltip for opening a starred message from Prompt Manager"
+  },
+  "pm_starred_load_error": {
+    "message": "スター付きメッセージを読み込めませんでした",
+    "description": "Error shown when starred messages cannot be loaded"
+  },
   "pm_theme_dark": {
     "message": "ダークモードに切替",
     "description": "Theme toggle tooltip - switch to dark"
@@ -1815,6 +1843,10 @@
     "message": "失敗 — 先に Gemini を開いてください",
     "description": "AI整理プロンプトのコピー失敗時のエラー"
   },
+  "aiOrgNoConversations": {
+    "message": "会話が見つかりません — チャット一覧を開いてスクロールしてから再試行してください",
+    "description": "AI 整理で会話を読み取れなかったときのボタン文言"
+  },
   "aiOrgCopyHint": {
     "message": "すべての会話とフォルダ構造をプロンプトとしてコピーします。Gemini に貼り付けて、インポート可能なフォルダプランを取得できます。",
     "description": "AI整理コピーボタンの下のヒントテキスト"
@@ -1990,5 +2022,25 @@
   "folder_new_chat_in_folder": {
     "message": "このフォルダで新規チャット",
     "description": "Folder context menu item to create a new chat and auto-assign it to this folder"
+  },
+  "responseCompleteNotification": {
+    "message": "Gemini 完了通知",
+    "description": "Gemini response completion notification toggle"
+  },
+  "responseCompleteNotificationHint": {
+    "message": "Gemini の回答が完了したらシステム通知を送信します。",
+    "description": "Gemini response completion notification hint"
+  },
+  "responseCompleteNotificationHintSafari": {
+    "message": "Safari は拡張機能のシステム通知に対応していないため、戻ったときにページ内通知を表示します。",
+    "description": "Safari-specific hint for response completion notifications"
+  },
+  "responseCompleteNotificationMessage": {
+    "message": "Gemini の回答が完了しました",
+    "description": "Gemini の回答完了時に表示するシステム通知本文"
+  },
+  "responseCompleteForegroundToast": {
+    "message": "新しい回答が完了しました",
+    "description": "Gemini の回答が画面外で完了したときの前面トースト文言"
   }
 }

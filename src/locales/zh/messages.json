@@ -231,6 +231,34 @@
     "message": "备注名（可选）",
     "description": "Placeholder for the optional prompt name/label input used as the compact-mode headline"
   },
+  "pm_prompt_manager": {
+    "message": "提示词管理器",
+    "description": "Button label for returning from the starred library to Prompt Manager"
+  },
+  "pm_starred_library": {
+    "message": "星标收藏库",
+    "description": "Prompt Manager starred messages library title and entry button"
+  },
+  "pm_starred_search_placeholder": {
+    "message": "搜索星标内容",
+    "description": "Search placeholder for starred messages in Prompt Manager"
+  },
+  "pm_starred_no_results": {
+    "message": "没有匹配的星标内容",
+    "description": "Empty state when starred search has no matches"
+  },
+  "pm_starred_untitled": {
+    "message": "未命名会话",
+    "description": "Fallback title for starred messages without a conversation title"
+  },
+  "pm_starred_open": {
+    "message": "打开星标内容",
+    "description": "Tooltip for opening a starred message from Prompt Manager"
+  },
+  "pm_starred_load_error": {
+    "message": "星标内容加载失败",
+    "description": "Error shown when starred messages cannot be loaded"
+  },
   "pm_theme_dark": {
     "message": "切换到深色模式",
     "description": "Theme toggle tooltip - switch to dark"
@@ -1815,6 +1843,10 @@
     "message": "失败 — 请先打开 Gemini",
     "description": "复制 AI 整理提示失败时的错误"
   },
+  "aiOrgNoConversations": {
+    "message": "未找到对话 — 请展开并滚动聊天列表后重试",
+    "description": "AI 整理未能读取到任何对话时的按钮文字"
+  },
   "aiOrgCopyHint": {
     "message": "复制所有对话和文件夹结构作为提示词。粘贴到 Gemini 中即可获得可导入的文件夹方案。",
     "description": "AI 整理复制按钮下方的提示文字"
@@ -1990,5 +2022,25 @@
   "floatingPanelGestureHint": {
     "message": "双击重命名 · 右键可置顶/改色/删除。",
     "description": "Floating folder panel hint explaining folder gestures and context menu actions"
+  },
+  "responseCompleteNotification": {
+    "message": "Gemini 思考完成通知",
+    "description": "Gemini 回答完成系统通知开关"
+  },
+  "responseCompleteNotificationHint": {
+    "message": "当 Gemini 完整输出回答后，发送系统通知。",
+    "description": "Gemini 回答完成系统通知提示"
+  },
+  "responseCompleteNotificationHintSafari": {
+    "message": "Safari 不支持扩展系统通知；返回页面时 Voyager 会显示页面内提示。",
+    "description": "Safari 上 Gemini 回答完成通知提示"
+  },
+  "responseCompleteNotificationMessage": {
+    "message": "Gemini 思考完成",
+    "description": "Gemini 完成回答时的系统通知正文"
+  },
+  "responseCompleteForegroundToast": {
+    "message": "新回复已完成",
+    "description": "Gemini 回复在屏幕外完成时的前台提示文本"
   }
 }
