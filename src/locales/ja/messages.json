@@ -1175,6 +1175,14 @@
     "message": "画面に表示される画像も処理します。動作はやや重く、処理中に画像が一瞬ちらつくことがあります。",
     "description": "Hint for the preview-time watermark removal toggle"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "推奨",
+    "description": "Inline badge highlighting the recommended (download-time) watermark removal option"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "不安定",
+    "description": "Inline badge warning that the preview-time watermark removal option is unstable"
+  },
   "nanobananaDownloadTooltip": {
     "message": "透かしなし画像をダウンロード (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "新しい回答が完了しました",
     "description": "Gemini の回答が画面外で完了したときの前面トースト文言"
+  },
+  "pluginsTitle": {
+    "message": "プラグイン",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "他の AI サイトを強化するプラグインを有効化します。オンにするとそのサイトへのアクセス権限を要求します。",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "ソース",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "サイトの権限が拒否されたため、プラグインを実行できません。",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "このブラウザでは利用できません。プラグインに必要なサイト権限を付与できません。",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "プラグインを読み込み中…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "利用できるプラグインはありません。",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "プラグインを更新",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }

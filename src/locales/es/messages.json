@@ -1175,6 +1175,14 @@
     "message": "También procesa las imágenes que se muestran en pantalla. Es más lento y la imagen puede parpadear un instante mientras se procesa.",
     "description": "Hint for the preview-time watermark removal toggle"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "Recomendado",
+    "description": "Inline badge highlighting the recommended (download-time) watermark removal option"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "Inestable",
+    "description": "Inline badge warning that the preview-time watermark removal option is unstable"
+  },
   "nanobananaDownloadTooltip": {
     "message": "Descargar imagen sin marca de agua (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "Nueva respuesta completada",
     "description": "Texto del aviso en primer plano cuando una respuesta de Gemini se completa fuera de pantalla"
+  },
+  "pluginsTitle": {
+    "message": "Complementos",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "Activa complementos que mejoran otros sitios de IA. Al activar uno se pedirá permiso para ese sitio.",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "Código",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "Permiso del sitio denegado; el complemento no puede ejecutarse.",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "No compatible con este navegador: no puede conceder el acceso al sitio que necesita el complemento.",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "Cargando complementos…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "No hay complementos disponibles.",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "Actualizar complementos",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }

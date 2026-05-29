@@ -1175,6 +1175,14 @@
     "message": "同时处理页面上预览的图片。速度更慢，处理过程中图片可能会短暂闪一下。",
     "description": "预览时去水印开关说明"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "推荐",
+    "description": "下载时去水印开关旁的推荐标签"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "不稳定",
+    "description": "预览时去水印开关旁的不稳定标签"
+  },
   "nanobananaDownloadTooltip": {
     "message": "下载无水印图片 (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "新回复已完成",
     "description": "Gemini 回复在屏幕外完成时的前台提示文本"
+  },
+  "pluginsTitle": {
+    "message": "插件",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "启用增强其他 AI 网站的插件。开启时会请求该网站的访问权限。",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "源码",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "网站权限被拒绝，插件无法运行。",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "此浏览器不支持——无法授予该插件所需的网站权限。",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "正在加载插件…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "暂无可用插件。",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "刷新插件",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }

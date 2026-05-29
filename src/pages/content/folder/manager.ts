@@ -247,6 +247,10 @@ export class FolderManager {
   // Capture-phase listener that injects "Move to folder" when a conversation ⋮
   // menu trigger is clicked (belt-and-suspenders alongside nativeMenuObserver).
   private moveMenuTriggerHandler: ((event: Event) => void) | null = null;
+  private moveMenuKeydownHandler: ((event: Event) => void) | null = null;
+  // Tracks the last input modality so menu-close focus handling stays a11y-safe:
+  // pointer dismissals drop trigger focus, keyboard dismissals preserve it.
+  private lastInputModality: 'pointer' | 'keyboard' = 'pointer';
   private outsideClickHandler: ((e: MouseEvent) => void) | null = null; // For exiting multi-select on outside click
 
   // Batch delete related properties
@@ -2380,6 +2384,27 @@ export class FolderManager {
     element.addEventListener(
       'click',
       (e) => {
+        // Never swallow clicks on the trailing ⋮ menu button — those need to
+        // open the per-row actions menu (rename / delete / move / etc.).
+        // Without this guard, our capture-phase stopPropagation below silently
+        // kills the menu trigger during programmatic batch-delete (the
+        // moreButton.click() never reaches Material's menu, so the menu never
+        // opens and waitForDeleteButtonAndClick times out at 3s every row).
+        if (
+          e.target instanceof Element &&
+          e.target.closest(
+            '[data-test-id="actions-menu-button"], [data-test-id="conversation-actions-menu-icon-button"]',
+          )
+        ) {
+          return;
+        }
+
+        // Programmatic batch delete drives Gemini's own menu via .click() — let
+        // every click through unimpeded for the duration of the batch.
+        if (this.batchDeleteInProgress) {
+          return;
+        }
+
         // Prevent navigation if long-press was triggered
         if (longPressTriggered) {
           e.preventDefault();
@@ -4292,39 +4317,39 @@ export class FolderManager {
    */
   private async triggerNativeDeleteForConversation(conversationId: string): Promise<boolean> {
     try {
-      // Step 1: Find the conversation element in the sidebar
+      // Step 1: Find the conversation element in the sidebar.
+      // The lr26 sidebar virtualizes rows — if the user has scrolled the list
+      // since selecting, the target row may be unmounted entirely.
       const conversationEl = this.findNativeConversationElement(conversationId);
       if (!conversationEl) {
-        this.debugWarn(`Could not find conversation element for: ${conversationId}`);
+        console.warn(
+          `[FolderManager] Batch delete: conversation row not in DOM (likely virtualized out): ${conversationId}. ` +
+            'Scroll the sidebar to bring it back into view, or split the batch into smaller chunks.',
+        );
         return false;
       }
 
-      // Step 2: Find and click the more options button
       const moreButton = await this.findAndClickMoreButton(conversationEl);
       if (!moreButton) {
-        this.debugWarn(`Could not find more button for: ${conversationId}`);
+        console.warn(
+          `[FolderManager] Batch delete: actions menu button not found for ${conversationId}`,
+        );
         return false;
       }
 
-      // Wait for menu to appear
       await this.delay(this.BATCH_DELETE_CONFIG.MENU_APPEAR_DELAY);
 
-      // Step 3: Find and click the delete button in the menu
       const deleteSuccess = await this.waitForDeleteButtonAndClick();
       if (!deleteSuccess) {
-        this.debugWarn(`Could not click delete button for: ${conversationId}`);
-        // Try to close the menu by clicking the backdrop
+        console.warn(
+          `[FolderManager] Batch delete: Delete menu item not found after ${this.BATCH_DELETE_CONFIG.MAX_BUTTON_WAIT_TIME}ms for ${conversationId}`,
+        );
         this.clickBackdropToCloseMenu();
         return false;
       }
 
-      // Wait for confirmation dialog (if any)
       await this.delay(this.BATCH_DELETE_CONFIG.DIALOG_APPEAR_DELAY);
-
-      // Step 4: Confirm deletion if confirmation dialog appears
       await this.confirmDeleteIfNeeded();
-
-      // Wait for deletion to complete
       await this.delay(this.BATCH_DELETE_CONFIG.DELETION_COMPLETE_DELAY);
 
       return true;
@@ -4357,36 +4382,60 @@ export class FolderManager {
   }
 
   /**
-   * Find and click the more options button for a conversation
+   * Find and click the more options button for a conversation.
+   *
+   * In Gemini's current sidebar layout the actions-menu-button is rendered
+   * INSIDE the conversation host (<gem-nav-list-item data-test-id="conversation">),
+   * so we look there first. The legacy sibling-container and ancestor-<li>
+   * strategies are kept as fallbacks for older layouts but are no-ops in the
+   * lr26 sidebar.
+   *
+   * The host is also virtualized — a row scrolled far off-screen may exist
+   * only as an empty stub or be missing entirely. Scroll the host into view
+   * before clicking so the trailing actions actually mount.
    */
   private async findAndClickMoreButton(conversationEl: HTMLElement): Promise<HTMLElement | null> {
-    // The more button might be in the actions container which is a sibling
-    let moreButton: HTMLElement | null = null;
-
-    // Strategy 1: Look for actions container as a sibling
-    const parent = conversationEl.parentElement;
-    if (parent) {
-      const actionsContainer = parent.querySelector('.conversation-actions-container');
-      if (actionsContainer) {
-        moreButton = actionsContainer.querySelector(
-          '[data-test-id="actions-menu-button"]',
-        ) as HTMLElement;
-      }
-    }
-
-    // Strategy 2: Look within the conversation element
-    if (!moreButton) {
-      moreButton = conversationEl.querySelector(
+    const locate = (): HTMLElement | null => {
+      // Primary: button is inside the conversation host (current lr26 layout).
+      const inside = conversationEl.querySelector<HTMLElement>(
         '[data-test-id="actions-menu-button"]',
-      ) as HTMLElement;
-    }
+      );
+      if (inside) return inside;
 
-    // Strategy 3: Look for any visible button with the actions-menu-button test id near this element
+      // Fallback: legacy sibling .conversation-actions-container layout.
+      const actionsContainer = conversationEl.parentElement?.querySelector(
+        '.conversation-actions-container',
+      );
+      const sibling = actionsContainer?.querySelector<HTMLElement>(
+        '[data-test-id="actions-menu-button"]',
+      );
+      if (sibling) return sibling;
+
+      // Fallback: nearest <li> ancestor (very old layout).
+      return (
+        conversationEl
+          .closest('li')
+          ?.querySelector<HTMLElement>('[data-test-id="actions-menu-button"]') ?? null
+      );
+    };
+
+    let moreButton = locate();
+
+    // If the row was virtualized away from the viewport its trailing actions
+    // may not have mounted yet. Scroll it back into view and poll briefly.
     if (!moreButton) {
-      // Find the closest list item that contains both the conversation and actions
-      const listItem = conversationEl.closest('li');
-      if (listItem) {
-        moreButton = listItem.querySelector('[data-test-id="actions-menu-button"]') as HTMLElement;
+      try {
+        conversationEl.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+      } catch {
+        /* scrollIntoView may throw in some embedded contexts — ignore */
+      }
+      const maxWait = this.BATCH_DELETE_CONFIG.MAX_BUTTON_WAIT_TIME;
+      const step = this.BATCH_DELETE_CONFIG.BUTTON_CHECK_INTERVAL;
+      let waited = 0;
+      while (waited < maxWait && !moreButton) {
+        await this.delay(step);
+        waited += step;
+        moreButton = locate();
       }
     }
 
@@ -4396,6 +4445,11 @@ export class FolderManager {
       return moreButton;
     }
 
+    console.warn(
+      '[FolderManager] Could not locate actions-menu-button inside conversation host. ' +
+        'Gemini sidebar DOM may have changed.',
+      conversationEl,
+    );
     return null;
   }
 
@@ -4509,56 +4563,75 @@ export class FolderManager {
 
     const keywords = this.getDeleteKeywords();
 
+    // Track per-poll state so we can emit one summary diagnostic on timeout.
+    let lastTestIdCount = 0;
+    let lastVisibleTestIdCount = 0;
+    let lastOverlayPanes = 0;
+    let lastMenuPanels = 0;
+    let lastMenuItemTexts: string[] = [];
+
     while (elapsed < maxWaitTime) {
-      // Strategy 1: Look for delete button by data-test-id (primary method)
-      const deleteByTestId = document.querySelector(
-        '[data-test-id="delete-button"]',
-      ) as HTMLElement;
-      if (deleteByTestId && this.isVisibleElement(deleteByTestId)) {
-        deleteByTestId.click();
+      // Strategy 1: data-test-id (primary). Use querySelectorAll because some
+      // layouts render hidden template copies that querySelector would lock
+      // onto, never advancing past an invisible match.
+      const deleteCandidates = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-test-id="delete-button"]'),
+      );
+      lastTestIdCount = deleteCandidates.length;
+      const visibleByTestId = deleteCandidates.filter((el) => this.isVisibleElement(el));
+      lastVisibleTestIdCount = visibleByTestId.length;
+      // Prefer one that lives inside an open menu / overlay panel.
+      const targetByTestId =
+        visibleByTestId.find((el) => el.closest('.mat-mdc-menu-panel, .cdk-overlay-pane')) ??
+        visibleByTestId[0];
+      if (targetByTestId) {
+        targetByTestId.click();
         this.debug('Clicked delete button (by test-id)');
         return true;
       }
 
-      // Strategy 2: Look for menu items containing delete text (supports translations)
-      const menuItems = document.querySelectorAll(
-        '.cdk-overlay-container button, ' +
-          '.cdk-overlay-container [role="menuitem"], ' +
-          '.mat-mdc-menu-content button, ' +
-          '.mat-menu-content button',
+      // Strategy 2: scan menu items for matching text (i18n-friendly).
+      const menuItems = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '.cdk-overlay-container button[role="menuitem"], ' +
+            '.cdk-overlay-container [role="menuitem"], ' +
+            '.mat-mdc-menu-content button, ' +
+            '.mat-menu-content button',
+        ),
       );
+      lastMenuItemTexts = menuItems.map((el) => el.textContent?.trim().slice(0, 20) || '');
 
       for (const item of menuItems) {
-        if (!this.isVisibleElement(item as HTMLElement)) continue;
-
+        if (!this.isVisibleElement(item)) continue;
         const text = item.textContent?.toLowerCase().trim() || '';
-        // Match keywords from i18n
         if (
           text &&
           keywords.some(
             (keyword: string) => text === keyword || (text.includes(keyword) && text.length < 20),
           )
         ) {
-          (item as HTMLElement).click();
+          item.click();
           this.debug('Clicked delete button (by text):', text);
           return true;
         }
       }
 
-      // Strategy 3: Look for button with delete icon (mat-icon containing 'delete')
+      // Strategy 3: by icon (mat-icon delete / delete_forever / delete_outline).
       const deleteIcons = document.querySelectorAll(
         '.cdk-overlay-container mat-icon, .cdk-overlay-container .material-icons',
       );
-
       for (const icon of deleteIcons) {
         const iconText = icon.textContent?.toLowerCase().trim() || '';
+        const iconAttr = icon.getAttribute('fonticon') || '';
         if (
           iconText === 'delete' ||
           iconText === 'delete_forever' ||
-          iconText === 'delete_outline'
+          iconText === 'delete_outline' ||
+          iconAttr === 'delete' ||
+          iconAttr === 'delete_forever' ||
+          iconAttr === 'delete_outline'
         ) {
-          // Find the parent button and click it
-          const parentButton = icon.closest('button, [role="menuitem"]') as HTMLElement;
+          const parentButton = icon.closest('button, [role="menuitem"]') as HTMLElement | null;
           if (parentButton && this.isVisibleElement(parentButton)) {
             parentButton.click();
             this.debug('Clicked delete button (by icon)');
@@ -4567,10 +4640,26 @@ export class FolderManager {
         }
       }
 
+      lastOverlayPanes = document.querySelectorAll('.cdk-overlay-pane').length;
+      lastMenuPanels = document.querySelectorAll('.mat-mdc-menu-panel').length;
+
       await this.delay(checkInterval);
       elapsed += checkInterval;
     }
 
+    // Emit a SINGLE compact diagnostic on timeout so users can paste it
+    // verbatim when reporting batch-delete failures.
+    console.warn(
+      '[FolderManager] Batch delete diagnostics on timeout: ' +
+        JSON.stringify({
+          deleteButtonsFound: lastTestIdCount,
+          deleteButtonsVisible: lastVisibleTestIdCount,
+          overlayPanes: lastOverlayPanes,
+          menuPanels: lastMenuPanels,
+          menuItemTexts: lastMenuItemTexts.slice(0, 10),
+          keywordsTried: keywords,
+        }),
+    );
     return false;
   }
 
@@ -4669,8 +4758,11 @@ export class FolderManager {
    */
   private getDeleteKeywords(): string[] {
     const rawPatterns = this.t('batch_delete_match_patterns') || '';
+    // Split on both ASCII and CJK fullwidth commas (and a couple of common
+    // separators) so locales authored with `，` / `、` / `；` don't end up as
+    // one giant unsplittable string.
     return rawPatterns
-      .split(',')
+      .split(/[,，、；;]+/)
       .map((s: string) => s.trim().toLowerCase())
       .filter((s: string) => s.length > 0);
   }
@@ -5854,6 +5946,23 @@ export class FolderManager {
             window.setTimeout(() => this.tryInjectMoveToFolderOnPanel(panel), 30),
           );
         });
+
+        // When a conversation menu we injected into closes, mat-menu restores
+        // focus to the ⋮ trigger, which keeps the row visually selected via
+        // :focus-within. Drop that focus on pointer-driven dismissals so the
+        // row reverts. See releaseTriggerFocusAfterPointerClose for guards.
+        mutation.removedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          const wasInjectedConversationMenu =
+            (node.matches?.(CONVERSATION_MENU_PANEL_SELECTOR) &&
+              node.querySelector('.gv-move-to-folder-btn')) ||
+            node.querySelector?.(`${CONVERSATION_MENU_PANEL_SELECTOR} .gv-move-to-folder-btn`) ||
+            (node.querySelector?.(CONVERSATION_MENU_PANEL_SELECTOR) &&
+              node.querySelector('.gv-move-to-folder-btn'));
+          if (wasInjectedConversationMenu) {
+            this.releaseTriggerFocusAfterPointerClose();
+          }
+        });
       }
     });
 
@@ -5969,6 +6078,9 @@ export class FolderManager {
 
     const handler = (event: Event) => {
       if (this.isDestroyed) return;
+      // Any pointerdown/click marks the modality; used to decide whether to drop
+      // trigger focus on menu close (pointer) vs preserve it (keyboard a11y).
+      this.lastInputModality = 'pointer';
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const trigger = target.closest(CONVERSATION_MENU_TRIGGER_SELECTOR) as HTMLElement | null;
@@ -5997,6 +6109,37 @@ export class FolderManager {
     document.addEventListener('click', handler, true);
     document.addEventListener('pointerdown', handler, true);
     this.moveMenuTriggerHandler = handler;
+
+    const keyHandler = () => {
+      if (!this.isDestroyed) this.lastInputModality = 'keyboard';
+    };
+    document.addEventListener('keydown', keyHandler, true);
+    this.moveMenuKeydownHandler = keyHandler;
+  }
+
+  // After a conversation ⋮ menu we injected into closes, mat-menu restores DOM
+  // focus to the trigger (Angular default), leaving the row highlighted via
+  // :focus-within. Drop that focus — but ONLY for plain pointer dismissals, so
+  // we never disturb keyboard navigation, the rename/delete flows, our
+  // move-to-folder dialog, or any confirm dialog that takes focus.
+  private releaseTriggerFocusAfterPointerClose(): void {
+    if (this.lastInputModality !== 'pointer') return;
+    window.setTimeout(() => {
+      if (this.isDestroyed) return;
+      // Skip if another overlay/dialog grabbed the stage (delete confirm, our
+      // move-to-folder dialog, any CDK dialog) — those manage their own focus.
+      if (
+        document.querySelector(
+          '.cdk-overlay-backdrop, .mat-mdc-dialog-container, .gv-folder-dialog-overlay',
+        )
+      ) {
+        return;
+      }
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active.matches?.(CONVERSATION_MENU_TRIGGER_SELECTOR)) {
+        active.blur();
+      }
+    }, 0);
   }
 
   private parseMenuTriggerPanelIds(trigger: HTMLElement): string[] {
@@ -6010,10 +6153,15 @@ export class FolderManager {
   }
 
   private teardownMoveMenuTriggerListener(): void {
-    if (!this.moveMenuTriggerHandler) return;
-    document.removeEventListener('click', this.moveMenuTriggerHandler, true);
-    document.removeEventListener('pointerdown', this.moveMenuTriggerHandler, true);
-    this.moveMenuTriggerHandler = null;
+    if (this.moveMenuTriggerHandler) {
+      document.removeEventListener('click', this.moveMenuTriggerHandler, true);
+      document.removeEventListener('pointerdown', this.moveMenuTriggerHandler, true);
+      this.moveMenuTriggerHandler = null;
+    }
+    if (this.moveMenuKeydownHandler) {
+      document.removeEventListener('keydown', this.moveMenuKeydownHandler, true);
+      this.moveMenuKeydownHandler = null;
+    }
   }
 
   private extractNativeConversationId(conversationEl: HTMLElement): string | null {

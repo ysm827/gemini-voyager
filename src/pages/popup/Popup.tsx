@@ -11,6 +11,8 @@ import { StorageKeys } from '@/core/types/common';
 import type { ConversationReference, Folder } from '@/core/types/folder';
 import {
   getModifierKey,
+  isChrome,
+  isEdge,
   isFirefox,
   isSafari,
   shouldShowSafariUpdateReminder,
@@ -18,6 +20,10 @@ import {
 import { shouldShowUpdateReminderForCurrentVersion } from '@/core/utils/updateReminder';
 import { compareVersions } from '@/core/utils/version';
 import { resolveWatermarkSettings } from '@/core/utils/watermarkSettings';
+import { matchesAnyPattern } from '@/features/plugins/sites/matchPattern';
+import { MarketplacePluginSource } from '@/features/plugins/sources/MarketplacePluginSource';
+import type { PluginManifest } from '@/features/plugins/types';
+import { resolvePlatformThemeId } from '@/pages/content/platformTheme';
 import {
   extractDmgDownloadUrl,
   extractLatestReleaseVersion,
@@ -36,12 +42,10 @@ import { useWidthAdjuster } from '../../hooks/useWidthAdjuster';
 import { CloudSyncSettings } from './components/CloudSyncSettings';
 import { ContextSyncSettings } from './components/ContextSyncSettings';
 import { KeyboardShortcutSettings } from './components/KeyboardShortcutSettings';
+import { PluginManager } from './components/PluginManager';
 import { StarredHistory } from './components/StarredHistory';
 import {
-  IconChatGPT,
-  IconClaude,
   IconDeepSeek,
-  IconGrok,
   IconKimi,
   IconMidjourney,
   IconNotebookLM,
@@ -73,6 +77,7 @@ const POPUP_SECTION_IDS = [
   'keyboardShortcuts',
   'inputCollapse',
   'promptManager',
+  'plugins',
   'general',
   'nanobanana',
 ] as const;
@@ -506,6 +511,10 @@ export default function Popup() {
   const [persistentExportToolbarEnabled, setPersistentExportToolbarEnabled] =
     useState<boolean>(true);
   const [activeAccountPlatform, setActiveAccountPlatform] = useState<AccountPlatform>('gemini');
+  const [activeUrl, setActiveUrl] = useState<string>('');
+  const [pluginManifests, setPluginManifests] = useState<readonly PluginManifest[]>([]);
+  const [pluginsLoading, setPluginsLoading] = useState<boolean>(true);
+  const [pluginsRefreshing, setPluginsRefreshing] = useState<boolean>(false);
   const [aiStructureCopyStatus, setAiStructureCopyStatus] = useState<
     'idle' | 'loading' | 'copied' | 'empty' | 'error'
   >('idle');
@@ -514,14 +523,56 @@ export default function Popup() {
   const isAIStudio = activeAccountPlatform === 'aistudio';
   const currentPlatformLabel = isAIStudio ? t('platformAIStudio') : t('platformGemini');
 
+  // Plugins whose match patterns cover the active tab's URL. A plugin only ever
+  // shows on — and only affects — the site it targets, so Claude plugins appear
+  // only on Claude, ChatGPT plugins only on ChatGPT, and neither on Gemini.
+  const siteScopedManifests = useMemo(
+    () => pluginManifests.filter((plugin) => matchesAnyPattern(activeUrl, plugin.matches)),
+    [activeUrl, pluginManifests],
+  );
+  // True when at least one plugin targets the active site. On those sites the
+  // Plugins section is pinned to the top of the popup and the Gemini-specific
+  // sections are hidden, since plugins are the only relevant surface there.
+  const isPluginSite = siteScopedManifests.length > 0;
+
+  // The host platform to theme the popup for (claude → orange, chatgpt → sky blue).
+  const activePlatform = useMemo(() => resolvePlatformThemeId(activeUrl), [activeUrl]);
+
+  const handleRefreshPlugins = useCallback(async () => {
+    setPluginsRefreshing(true);
+    try {
+      setPluginManifests(await new MarketplacePluginSource().forceRefresh());
+    } finally {
+      setPluginsRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
     browser.tabs
       .query({ active: true, currentWindow: true })
       .then((tabs) => {
         const url = tabs[0]?.url || '';
+        setActiveUrl(url);
         setActiveAccountPlatform(detectAccountPlatformFromUrl(url));
       })
       .catch(() => {});
+  }, []);
+
+  // Load the plugin catalog from the marketplace (cache-first; refreshes in bg).
+  useEffect(() => {
+    let active = true;
+    void new MarketplacePluginSource()
+      .list()
+      .then((manifests) => {
+        if (active) setPluginManifests(manifests);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setPluginsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleFormulaCopyFormatChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1408,6 +1459,10 @@ export default function Popup() {
       case 'sidebarBehavior':
       case 'visualEffect':
         return !isAIStudio;
+      case 'plugins':
+        // The Plugins section is always rendered pinned to the top (and only on
+        // sites a plugin targets). It never appears in the reorderable list.
+        return false;
       default:
         return true;
     }
@@ -1435,20 +1490,30 @@ export default function Popup() {
     });
   };
 
-  const wrapSection = (id: PopupSectionId, content: React.ReactNode) => (
-    <div key={id} style={{ order: sectionOrder.indexOf(id) }} className="group/reorder relative">
-      <SectionReorderControls
-        isFirst={visibleSections[0] === id}
-        isLast={visibleSections[visibleSections.length - 1] === id}
-        hasValueBadge={VALUE_BADGE_SECTION_IDS.has(id)}
-        onMoveUp={() => moveSectionInOrder(id, 'up')}
-        onMoveDown={() => moveSectionInOrder(id, 'down')}
-        moveUpLabel={t('moveSectionUp')}
-        moveDownLabel={t('moveSectionDown')}
-      />
-      {content}
-    </div>
-  );
+  const wrapSection = (id: PopupSectionId, content: React.ReactNode) => {
+    // On Claude / ChatGPT, hide the Gemini-specific sections so the popup only
+    // shows what's relevant there (the pinned Plugins section). The Prompt
+    // Manager is the exception — it runs on those sites too, so keep it visible
+    // (rendered plainly, without the Gemini-only reorder controls).
+    if (isPluginSite) {
+      if (id !== 'promptManager') return null;
+      return <div key={id}>{content}</div>;
+    }
+    return (
+      <div key={id} style={{ order: sectionOrder.indexOf(id) }} className="group/reorder relative">
+        <SectionReorderControls
+          isFirst={visibleSections[0] === id}
+          isLast={visibleSections[visibleSections.length - 1] === id}
+          hasValueBadge={VALUE_BADGE_SECTION_IDS.has(id)}
+          onMoveUp={() => moveSectionInOrder(id, 'up')}
+          onMoveDown={() => moveSectionInOrder(id, 'down')}
+          moveUpLabel={t('moveSectionUp')}
+          moveDownLabel={t('moveSectionDown')}
+        />
+        {content}
+      </div>
+    );
+  };
 
   // Show starred history if requested
   if (showStarredHistory) {
@@ -1456,7 +1521,16 @@ export default function Popup() {
   }
 
   return (
-    <div className="bg-background text-foreground w-[360px]">
+    <div
+      className="bg-background text-foreground w-[360px]"
+      style={
+        activePlatform === 'claude'
+          ? ({ '--primary': '#d97757', '--primary-foreground': '#ffffff' } as React.CSSProperties)
+          : activePlatform === 'chatgpt'
+            ? ({ '--primary': '#0ea5e9', '--primary-foreground': '#ffffff' } as React.CSSProperties)
+            : undefined
+      }
+    >
       {/* Header */}
       <div className="border-border/50 flex items-center justify-between border-b px-5 py-5">
         <h1 className="text-primary text-2xl font-extrabold tracking-tight">{t('extName')}</h1>
@@ -1550,6 +1624,19 @@ export default function Popup() {
         )}
         {/* Cloud Sync */}
         {!isSafariBrowser && wrapSection('cloudSync', <CloudSyncSettings />)}
+        {/* Plugin ecosystem — pinned to the very top on sites a plugin targets
+            (e.g. Claude / ChatGPT), scoped to that site's plugins. Hidden entirely
+            on sites with no matching plugin (e.g. Gemini). */}
+        {isPluginSite && (
+          <div style={{ order: -1 }}>
+            <PluginManager
+              manifests={siteScopedManifests}
+              loading={pluginsLoading}
+              onRefresh={handleRefreshPlugins}
+              refreshing={pluginsRefreshing}
+            />
+          </div>
+        )}
         {/* Context Sync */}
         {wrapSection('contextSync', <ContextSyncSettings />)}
         {/* Timeline Options */}
@@ -2563,30 +2650,32 @@ export default function Popup() {
               </div>
               <div>
                 <Label className="mb-2 block text-sm font-medium">{t('customWebsites')}</Label>
-                {/* Gemini Only Notice - moved here since it's about Prompt Manager */}
-                <div className="bg-primary/10 border-primary/20 mb-2 flex items-center gap-2 rounded-md border p-2">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="text-primary shrink-0"
-                  >
-                    <path
-                      d="M8 1C4.13 1 1 4.13 1 8s3.13 7 7 7 7-3.13 7-7-3.13-7-7-7zm0 11c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm1-4H7V5h2v3z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                  <p className="text-primary text-xs font-medium">{t('geminiOnlyNotice')}</p>
-                </div>
+                {/* Gemini-default notice — only meaningful on Gemini itself, so
+                    hide it on Claude/ChatGPT where the user is already off-Gemini. */}
+                {!isPluginSite && (
+                  <div className="bg-primary/10 border-primary/20 mb-2 flex items-center gap-2 rounded-md border p-2">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="text-primary shrink-0"
+                    >
+                      <path
+                        d="M8 1C4.13 1 1 4.13 1 8s3.13 7 7 7 7-3.13 7-7-3.13-7-7-7zm0 11c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm1-4H7V5h2v3z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    <p className="text-primary text-xs font-medium">{t('geminiOnlyNotice')}</p>
+                  </div>
+                )}
 
-                {/* Quick-select buttons for popular websites */}
+                {/* Quick-select buttons for popular websites. ChatGPT / Claude /
+                    Grok are intentionally absent: they're plugin platforms (managed
+                    via the Plugins section), not Prompt-Manager custom sites. */}
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {[
-                    { domain: 'chatgpt.com', label: 'ChatGPT', Icon: IconChatGPT },
-                    { domain: 'claude.ai', label: 'Claude', Icon: IconClaude },
-                    { domain: 'grok.com', label: 'Grok', Icon: IconGrok },
                     { domain: 'deepseek.com', label: 'DeepSeek', Icon: IconDeepSeek },
                     { domain: 'qwen.ai', label: 'Qwen', Icon: IconQwen },
                     { domain: 'kimi.com', label: 'Kimi', Icon: IconKimi },
@@ -2849,12 +2938,17 @@ export default function Popup() {
               <CardContent className="space-y-4 p-0">
                 <div className="group flex items-center justify-between">
                   <div className="flex-1">
-                    <Label
-                      htmlFor="watermark-download"
-                      className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
-                    >
-                      {t('nanobananaDownloadLabel')}
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="watermark-download"
+                        className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                      >
+                        {t('nanobananaDownloadLabel')}
+                      </Label>
+                      <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-600 uppercase dark:text-emerald-400">
+                        {t('nanobananaBadgeRecommended')}
+                      </span>
+                    </div>
                     <p className="text-muted-foreground mt-1 text-xs">
                       {t('nanobananaDownloadHint')}
                     </p>
@@ -2870,12 +2964,17 @@ export default function Popup() {
                 </div>
                 <div className="group flex items-center justify-between">
                   <div className="flex-1">
-                    <Label
-                      htmlFor="watermark-preview"
-                      className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
-                    >
-                      {t('nanobananaPreviewLabel')}
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="watermark-preview"
+                        className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                      >
+                        {t('nanobananaPreviewLabel')}
+                      </Label>
+                      <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-amber-600 uppercase dark:text-amber-400">
+                        {t('nanobananaBadgeUnstable')}
+                      </span>
+                    </div>
                     <p className="text-muted-foreground mt-1 text-xs">
                       {t('nanobananaPreviewHint')}
                     </p>
@@ -2933,6 +3032,29 @@ export default function Popup() {
             {t('officialDocs')}
           </a>
         </div>
+
+        {(isChrome() || isEdge()) && (
+          <a
+            href={
+              isEdge()
+                ? 'https://microsoftedge.microsoft.com/addons/detail/voyager/gibmkggjijalcjinbdhcpklodjkhhlne'
+                : 'https://chromewebstore.google.com/detail/gemini-voyager/iifacdnjakkhjjiengaffnegbndgingi'
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50/70 px-3 py-2.5 text-xs transition-colors hover:bg-amber-100/80 dark:border-amber-700/40 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
+          >
+            <span className="text-base leading-none" aria-hidden="true">
+              ⭐
+            </span>
+            <span className="text-foreground/80 flex-1 leading-snug">
+              {isEdge() ? t('changelog_rate_edge') : t('changelog_rate_chrome')}
+            </span>
+            <span className="font-semibold whitespace-nowrap text-amber-700 transition-transform group-hover:translate-x-0.5 dark:text-amber-400">
+              {isEdge() ? t('changelog_rate_edge_cta') : t('changelog_rate_chrome_cta')} →
+            </span>
+          </a>
+        )}
 
         <a
           href="https://github.com/Nagi-ovo/gemini-voyager"

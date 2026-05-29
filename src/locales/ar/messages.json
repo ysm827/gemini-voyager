@@ -1175,6 +1175,14 @@
     "message": "تتم معالجة الصور المعروضة على الشاشة أيضًا. أبطأ؛ وقد تومض الصورة للحظة أثناء المعالجة.",
     "description": "Hint for the preview-time watermark removal toggle"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "موصى به",
+    "description": "Inline badge highlighting the recommended (download-time) watermark removal option"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "غير مستقر",
+    "description": "Inline badge warning that the preview-time watermark removal option is unstable"
+  },
   "nanobananaDownloadTooltip": {
     "message": "تنزيل الصورة بدون علامة مائية (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "اكتمل الرد الجديد",
     "description": "نص التنبيه الأمامي عندما يكتمل رد Gemini خارج الشاشة"
+  },
+  "pluginsTitle": {
+    "message": "الإضافات",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "فعّل الإضافات التي تحسّن مواقع الذكاء الاصطناعي الأخرى. تفعيل إضافة يطلب إذن الوصول إلى ذلك الموقع.",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "المصدر",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "تم رفض إذن الموقع، ولا يمكن تشغيل الإضافة بدونه.",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "غير مدعوم في هذا المتصفّح — لا يمكن منح إذن الموقع الذي تحتاجه الإضافة.",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "جارٍ تحميل الإضافات…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "لا توجد إضافات متاحة.",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "تحديث الإضافات",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }

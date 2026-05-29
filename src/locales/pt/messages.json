@@ -1175,6 +1175,14 @@
     "message": "Também processa as imagens exibidas na tela. É mais lento e a imagem pode piscar brevemente durante o processamento.",
     "description": "Hint for the preview-time watermark removal toggle"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "Recomendado",
+    "description": "Inline badge highlighting the recommended (download-time) watermark removal option"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "Instável",
+    "description": "Inline badge warning that the preview-time watermark removal option is unstable"
+  },
   "nanobananaDownloadTooltip": {
     "message": "Baixar imagem sem marca d'água (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "Nova resposta concluída",
     "description": "Texto do toast em primeiro plano quando uma resposta do Gemini termina fora da tela"
+  },
+  "pluginsTitle": {
+    "message": "Plugins",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "Ative plugins que aprimoram outros sites de IA. Ativar um pede permissão para aquele site.",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "Código",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "Permissão do site negada; o plugin não pode ser executado.",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "Sem suporte neste navegador: não é possível conceder o acesso ao site de que o plugin precisa.",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "Carregando plugins…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "Nenhum plugin disponível.",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "Atualizar plugins",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }

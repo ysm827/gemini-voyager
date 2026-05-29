@@ -24,6 +24,7 @@ import { type StatusToastManager, createStatusToastManager } from './statusToast
 import { WatermarkEngine } from './watermarkEngine';
 
 let engine: WatermarkEngine | null = null;
+let enginePromise: Promise<WatermarkEngine> | null = null;
 const processingQueue = new Set<HTMLImageElement>();
 
 /**
@@ -104,23 +105,14 @@ const replaceWithNormalSize = (src: string): string => {
 };
 
 /**
- * Add a visual indicator (🍌) to the native download button
- * The click goes through to the native button, which triggers the fetch interceptor
+ * Attach the 🍌 badge to a download button. The badge lives INSIDE the button
+ * because Gemini wraps it in `<gem-icon-button>` which has `overflow: hidden`,
+ * so any negative offset overhanging the wrapper would be clipped.
  */
-function addDownloadIndicator(imgElement: HTMLImageElement): void {
-  const container = imgElement.closest('generated-image,.generated-image-container');
-  if (!container) return;
+function attachIndicatorToButton(nativeButton: HTMLButtonElement): void {
+  // Idempotency: don't add a second indicator to the same button.
+  if (nativeButton.querySelector('.nanobanana-indicator')) return;
 
-  // Try to find Gemini's native download button area
-  const nativeDownloadIcon = container.querySelector(DOWNLOAD_ICON_SELECTOR);
-  const nativeButton = nativeDownloadIcon?.closest('button');
-
-  if (!nativeButton) return;
-
-  // Check if indicator already exists
-  if (container.querySelector('.nanobanana-indicator')) return;
-
-  // Create the banana indicator badge
   const indicator = document.createElement('span');
   indicator.className = 'nanobanana-indicator';
   indicator.textContent = '🍌';
@@ -128,26 +120,41 @@ function addDownloadIndicator(imgElement: HTMLImageElement): void {
     chrome.i18n.getMessage('nanobananaDownloadTooltip') ||
     'NanoBanana: Downloads will have watermark removed';
 
-  // Style it as a small badge on the button
   Object.assign(indicator.style, {
     position: 'absolute',
-    top: '-4px',
-    right: '-4px',
-    fontSize: '12px',
+    top: '2px',
+    right: '2px',
+    fontSize: '11px',
+    lineHeight: '1',
     pointerEvents: 'none', // Let clicks pass through to the native button
     zIndex: '10',
-    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.45))',
   });
 
-  // Make the button container relative for absolute positioning
-  const buttonContainer = nativeButton.parentElement;
-  if (buttonContainer) {
-    const currentPosition = getComputedStyle(buttonContainer).position;
-    if (currentPosition === 'static') {
-      (buttonContainer as HTMLElement).style.position = 'relative';
-    }
-    buttonContainer.appendChild(indicator);
+  // mdc-icon-button is `position: relative` by default; guard against future
+  // Gemini changes that might flip it to static.
+  if (getComputedStyle(nativeButton).position === 'static') {
+    nativeButton.style.position = 'relative';
   }
+  nativeButton.appendChild(indicator);
+}
+
+/**
+ * Add a visual indicator (🍌) to the native download button via the
+ * preview-image path. Looks up the button through the generated-image
+ * container; for the lightbox/expansion-dialog path, see
+ * decorateDownloadButtons() which walks every `<download-generated-image-button>`
+ * host (toolbar AND lightbox).
+ */
+function addDownloadIndicator(imgElement: HTMLImageElement): void {
+  const container = imgElement.closest('generated-image,.generated-image-container');
+  if (!container) return;
+
+  const nativeDownloadIcon = container.querySelector(DOWNLOAD_ICON_SELECTOR);
+  const nativeButton = nativeDownloadIcon?.closest('button');
+  if (!nativeButton) return;
+
+  attachIndicatorToButton(nativeButton as HTMLButtonElement);
 }
 
 /**
@@ -194,25 +201,27 @@ const processAllImages = (): void => {
   const images = findGeminiImages();
   images.forEach(processImage);
 
-  // Also check existing processed images to see if they need an indicator
-  // (e.g. if the native buttons loaded after the image was processed)
-  const processedImages = document.querySelectorAll<HTMLImageElement>(
-    'img[data-watermark-processed="true"]',
-  );
-  processedImages.forEach((img) => {
-    addDownloadIndicator(img);
-  });
+  // Always re-run the indicator pass so blob-src previews and late-loading
+  // native buttons still pick up the 🍌 badge (idempotent).
+  decorateDownloadButtons();
 };
 
 /**
- * Add the 🍌 indicator to every Gemini-generated image's download button,
- * regardless of whether preview-time removal has run. Used when only the
- * download path is enabled.
+ * Add the 🍌 indicator to every Gemini-generated image's download button.
+ *
+ * Walks `<download-generated-image-button>` hosts directly instead of going
+ * through the img element. This covers:
+ *  1. The in-message toolbar (host lives inside `<generated-image>`)
+ *  2. The lightbox / `<expansion-dialog>` rendered into `cdk-overlay-container`
+ *     — same custom element, but NOT inside any `generated-image` container.
+ *
+ * Also independent of the img src (blob: vs googleusercontent.com).
  */
-const decorateDownloadButtons = (): void => {
-  const images = document.querySelectorAll<HTMLImageElement>('img[src*="googleusercontent.com"]');
-  images.forEach((img) => {
-    if (isValidGeminiImage(img)) addDownloadIndicator(img);
+export const decorateDownloadButtons = (): void => {
+  const hosts = document.querySelectorAll<HTMLElement>('download-generated-image-button');
+  hosts.forEach((host) => {
+    const button = host.querySelector<HTMLButtonElement>('button');
+    if (button) attachIndicatorToButton(button);
   });
 };
 
@@ -303,6 +312,19 @@ async function processImageRequest(
   base64: string,
   bridge: HTMLElement,
 ): Promise<void> {
+  // Engine init is async (loads two PNG assets). The bridge observer is
+  // installed BEFORE the await on engine creation, so requests can land here
+  // before the engine is ready — queue on enginePromise instead of failing
+  // fast (otherwise users who click download right after the content script
+  // re-injects, e.g. after a /u/0/ → /u/1/ account switch, see the toast
+  // stuck for ~30s while the MAIN-world interceptor times out).
+  if (!engine && enginePromise) {
+    try {
+      await enginePromise;
+    } catch {
+      // engine init failed — fall through to the "not initialized" path
+    }
+  }
   if (!engine) {
     bridge.dataset.response = JSON.stringify({
       requestId,
@@ -363,12 +385,17 @@ export async function startWatermarkRemover(): Promise<void> {
     console.log(
       `[Gemini Voyager] Initializing watermark remover (download=${downloadEnabled}, preview=${previewEnabled})`,
     );
-    engine = await WatermarkEngine.create();
 
     if (downloadEnabled) {
-      // Bridge handles processing requests coming from the MAIN-world fetch interceptor
+      // Install the bridge observer BEFORE awaiting engine init so requests
+      // that arrive during the asset-loading window (typically 100ms-2s, and
+      // larger after a hard navigation like an account switch) are not lost.
+      // processImageRequest waits on enginePromise if the engine isn't ready.
       setupFetchInterceptorBridge();
     }
+
+    enginePromise = WatermarkEngine.create();
+    engine = await enginePromise;
 
     if (previewEnabled) {
       // Heavy path: replace each image's src with a watermark-stripped blob.
@@ -446,7 +473,10 @@ function showImmediateDownloadToast(button: HTMLButtonElement): void {
   }
 
   const sequenceId = ++sequenceCounter;
-  const downloadToastId = manager.addToast(downloadMessage, 'info', { autoDismissMs: 3000 });
+  const downloadToastId = manager.addToast(downloadMessage, 'info', {
+    pending: true,
+    autoDismissMs: 3000,
+  });
 
   const processingTimer = setTimeout(() => {
     if (!activeSequence || activeSequence.id !== sequenceId) return;
@@ -552,6 +582,7 @@ function setupStatusListener(): void {
             }
             if (!activeSequence.downloadToastId) {
               activeSequence.downloadToastId = manager.addToast(downloadMessage, 'info', {
+                pending: true,
                 autoDismissMs: 3000,
               });
             }
@@ -562,6 +593,7 @@ function setupStatusListener(): void {
           if (activeSequence) {
             if (!activeSequence.downloadToastId) {
               activeSequence.downloadToastId = manager.addToast(downloadLargeMessage, 'info', {
+                pending: true,
                 autoDismissMs: 3000,
               });
             } else {

@@ -1175,6 +1175,14 @@
     "message": "Traite aussi les images affichées à l'écran. Plus lent ; l'image peut clignoter brièvement pendant le traitement.",
     "description": "Hint for the preview-time watermark removal toggle"
   },
+  "nanobananaBadgeRecommended": {
+    "message": "Recommandé",
+    "description": "Inline badge highlighting the recommended (download-time) watermark removal option"
+  },
+  "nanobananaBadgeUnstable": {
+    "message": "Instable",
+    "description": "Inline badge warning that the preview-time watermark removal option is unstable"
+  },
   "nanobananaDownloadTooltip": {
     "message": "Télécharger l'image sans filigrane (NanoBanana)",
     "description": "Download button tooltip"
@@ -2042,5 +2050,37 @@
   "responseCompleteForegroundToast": {
     "message": "Nouvelle réponse terminée",
     "description": "Texte du toast au premier plan lorsqu'une réponse Gemini se termine hors écran"
+  },
+  "pluginsTitle": {
+    "message": "Extensions",
+    "description": "Popup section title for the plugin list"
+  },
+  "pluginsDescription": {
+    "message": "Activez des extensions qui améliorent d'autres sites d'IA. En activer une demande l'autorisation pour ce site.",
+    "description": "Popup subtitle explaining the plugin list"
+  },
+  "pluginViewSource": {
+    "message": "Source",
+    "description": "Link label to a plugin source/repo"
+  },
+  "pluginPermissionDenied": {
+    "message": "Autorisation du site refusée ; l'extension ne peut pas s'exécuter.",
+    "description": "Shown when the user denies the site permission for a plugin"
+  },
+  "pluginUnsupportedPlatform": {
+    "message": "Non pris en charge par ce navigateur : impossible d'accorder l'accès au site requis par l'extension.",
+    "description": "Shown when a plugin can't be enabled because the browser can't grant the site access it needs (e.g. Safari)"
+  },
+  "pluginsLoading": {
+    "message": "Chargement des extensions…",
+    "description": "Shown while the plugin catalog is loading"
+  },
+  "pluginsEmpty": {
+    "message": "Aucune extension disponible.",
+    "description": "Shown when no plugins are available"
+  },
+  "pluginsRefresh": {
+    "message": "Actualiser les extensions",
+    "description": "Tooltip for the refresh-marketplace-catalog button"
   }
 }
