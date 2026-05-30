@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PLUGIN_BASE_STYLE_ID, PLUGIN_HIDDEN_CLASS } from '../constants';
 import { type PluginManifest, type SiteAdapter, cssRef, semanticRef } from '../types';
 import { DeclarativeEngine } from './declarativeEngine';
+import { registerNativeHandler } from './nativeHandlers';
 
 function makeManifest(
   contributes: PluginManifest['contributes'],
@@ -47,6 +48,23 @@ describe('DeclarativeEngine', () => {
 
     engine.unmount('test.plugin');
     expect(document.getElementById('gv-plugin-style-test.plugin')).toBeNull();
+  });
+
+  it('runs a registered native handler: start on mount, stop on unmount, once each', () => {
+    const start = vi.fn();
+    const stop = vi.fn();
+    registerNativeHandler('test.native', { start, stop });
+    const engine = new DeclarativeEngine({ doc: document });
+
+    engine.mount(makeManifest({}, 'test.native'));
+    expect(start).toHaveBeenCalledTimes(1);
+
+    // Re-mounting an already-active plugin is a no-op → start not called again.
+    engine.mount(makeManifest({}, 'test.native'));
+    expect(start).toHaveBeenCalledTimes(1);
+
+    engine.unmount('test.native');
+    expect(stop).toHaveBeenCalledTimes(1);
   });
 
   it('addClass is reversible', () => {
@@ -163,6 +181,30 @@ describe('DeclarativeEngine', () => {
 
     engine.updateSettings('test.plugin', { width: 95 });
     expect(styleEl?.textContent).toContain('max-width:95ch');
+  });
+
+  it('substitutes {{setting}} tokens in domOps and updates them live', () => {
+    document.body.innerHTML = '<div class="box"></div>';
+    const engine = new DeclarativeEngine({ doc: document });
+    engine.mount(
+      makeManifest({
+        settings: { width: { type: 'number', label: 'Width', default: 70 } },
+        domOps: [
+          {
+            op: 'setStyle',
+            target: cssRef('.box'),
+            styles: { '--gv-plugin-reading-width': '{{width}}px' },
+          },
+        ],
+      }),
+      { width: 80 },
+    );
+
+    const box = document.querySelector<HTMLElement>('.box');
+    expect(box?.style.getPropertyValue('--gv-plugin-reading-width')).toBe('80px');
+
+    engine.updateSettings('test.plugin', { width: 95 });
+    expect(box?.style.getPropertyValue('--gv-plugin-reading-width')).toBe('95px');
   });
 
   it('falls back to the schema default when a setting value is absent', () => {

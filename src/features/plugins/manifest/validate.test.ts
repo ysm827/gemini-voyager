@@ -54,6 +54,44 @@ describe('validateManifest', () => {
     expect(result.error.map((e) => e.path)).toContain('category');
   });
 
+  it('carries through a sanitized i18n map, dropping invalid entries', () => {
+    const result = validateManifest({
+      ...valid,
+      i18n: {
+        zh: {
+          name: 'Claude · 测试',
+          description: '中文描述',
+          settings: {
+            width: { label: '阅读宽度', minLabel: '更窄', maxLabel: '更宽' },
+            ignored: { label: 42 },
+          },
+        },
+        ja: { name: 123, description: '日本語' }, // bad name dropped, description kept
+        ko: { name: 'x'.repeat(600) }, // over-length → entry empty → locale dropped
+        es: { settings: { width: { minLabel: 'Más estrecho' } } },
+        fr: 'not-an-object', // dropped
+      },
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.i18n).toEqual({
+      zh: {
+        name: 'Claude · 测试',
+        description: '中文描述',
+        settings: { width: { label: '阅读宽度', minLabel: '更窄', maxLabel: '更宽' } },
+      },
+      ja: { description: '日本語' },
+      es: { settings: { width: { minLabel: 'Más estrecho' } } },
+    });
+  });
+
+  it('omits i18n when absent or when no entry survives sanitization', () => {
+    const absent = validateManifest(valid);
+    expect(absent.success && absent.data.i18n).toBeUndefined();
+    const empty = validateManifest({ ...valid, i18n: { zh: { name: 42 } } });
+    expect(empty.success && empty.data.i18n).toBeUndefined();
+  });
+
   it('rejects unknown dom op kinds', () => {
     const result = validateManifest({
       ...valid,
@@ -88,13 +126,38 @@ describe('validateManifest', () => {
       ...valid,
       contributes: {
         ...valid.contributes,
-        settings: { width: { type: 'number', label: 'Width', default: 70, min: 40, max: 120 } },
+        settings: {
+          width: {
+            type: 'number',
+            label: 'Width',
+            minLabel: 'Narrower',
+            maxLabel: 'Wider',
+            default: 70,
+            min: 40,
+            max: 120,
+          },
+        },
       },
     });
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.contributes.settings?.width.default).toBe(70);
+    expect(result.data.contributes.settings?.width.minLabel).toBe('Narrower');
+    expect(result.data.contributes.settings?.width.maxLabel).toBe('Wider');
     expect(result.data.contributes.settings?.width.max).toBe(120);
+  });
+
+  it('rejects invalid setting endpoint labels', () => {
+    const result = validateManifest({
+      ...valid,
+      contributes: {
+        ...valid.contributes,
+        settings: { width: { type: 'number', label: 'Width', default: 70, minLabel: '' } },
+      },
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.map((e) => e.path)).toContain('contributes.settings.width.minLabel');
   });
 
   it('rejects a setting with an invalid type', () => {
@@ -159,5 +222,28 @@ describe('validateManifest', () => {
       },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('accepts an optional theme with a hex brand colour', () => {
+    const result = validateManifest({ ...valid, theme: { brand: '#d97757' } });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.theme?.brand).toBe('#d97757');
+  });
+
+  it('omits theme when not provided', () => {
+    const result = validateManifest(valid);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.theme).toBeUndefined();
+  });
+
+  it('rejects a theme whose brand is not a hex colour', () => {
+    for (const brand of ['red', 'rgb(1,2,3)', 'd97757', '', '#ggg', 'url(x)']) {
+      const result = validateManifest({ ...valid, theme: { brand } });
+      expect(result.success).toBe(false);
+      if (result.success) continue;
+      expect(result.error.some((e) => e.path === 'theme.brand')).toBe(true);
+    }
   });
 });

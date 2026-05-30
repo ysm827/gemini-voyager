@@ -55,6 +55,13 @@ export interface SiteAdapter {
    */
   readonly selectors: Readonly<Record<string, string>>;
   readonly theme: SiteThemeDescriptor;
+  /**
+   * Optional brand accent (hex) for Voyager's OWN UI when running on this site —
+   * the Prompt Manager, formula-copy toast, popup. Acts as the built-in default;
+   * a matching plugin's `theme.brand` overrides it. Omit (e.g. Gemini / AI
+   * Studio) to keep Voyager's native green.
+   */
+  readonly brandColor?: string;
   readonly capabilities: ReadonlySet<SiteCapability>;
 }
 
@@ -85,6 +92,8 @@ export const semanticRef = (key: string): SemanticSelectorRef => ({ kind: 'seman
 export interface StyleContribution {
   /** Raw CSS injected as a <style> element. Classes should be `gv-` prefixed. */
   readonly css: string;
+  /** Optional source path when the CSS came from a plugin-authored style file. */
+  readonly source?: string;
 }
 
 /**
@@ -114,6 +123,10 @@ export interface SettingField {
   readonly type: 'boolean' | 'number' | 'string' | 'color' | 'select';
   readonly label: string;
   readonly default: boolean | number | string;
+  /** Optional label for the low end of a number/range control. */
+  readonly minLabel?: string;
+  /** Optional label for the high end of a number/range control. */
+  readonly maxLabel?: string;
   readonly options?: readonly { readonly value: string; readonly label: string }[];
   readonly min?: number;
   readonly max?: number;
@@ -160,6 +173,29 @@ export const PLUGIN_CATEGORIES = [
 export type KnownPluginCategory = (typeof PLUGIN_CATEGORIES)[number];
 export type PluginCategory = KnownPluginCategory | (string & {});
 
+/**
+ * Optional brand theming a plugin contributes for the site(s) it matches. The
+ * author declares only a single accent `brand` (hex); Voyager derives the
+ * hover / soft / foreground shades via CSS `color-mix`. Overrides the matching
+ * `SiteAdapter.brandColor`.
+ */
+export interface PluginTheme {
+  /** Accent colour as a hex string (e.g. `#d97757`). */
+  readonly brand: string;
+}
+
+export interface LocalizedSettingField {
+  readonly label?: string;
+  readonly minLabel?: string;
+  readonly maxLabel?: string;
+}
+
+export interface PluginLocalization {
+  readonly name?: string;
+  readonly description?: string;
+  readonly settings?: Readonly<Record<string, LocalizedSettingField>>;
+}
+
 export interface PluginManifest {
   /** Globally unique, reverse-dotted (e.g. `vendor.my-plugin`). */
   readonly id: string;
@@ -178,6 +214,14 @@ export interface PluginManifest {
   /** URL match patterns the plugin applies to (glob subset of Chrome match patterns). */
   readonly matches: readonly string[];
   readonly contributes: PluginContributions;
+  /** Optional brand accent for Voyager UI on the matched site(s). */
+  readonly theme?: PluginTheme;
+  /**
+   * Optional localized metadata and setting labels, keyed by app language code
+   * (`en`, `zh`, `zh_TW`, `ja`, …). Per-field fallback to the top-level English
+   * fields when a translation is missing.
+   */
+  readonly i18n?: Readonly<Record<string, PluginLocalization>>;
 }
 
 /** Where an installed plugin came from. Drives trust + update behaviour. */

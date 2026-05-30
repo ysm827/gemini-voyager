@@ -1,9 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import browser from 'webextension-polyfill';
 
 import { isFirefox, isSafari } from '@/core/utils/browser';
 import { pluginsToOriginPatterns } from '@/features/plugins/runtime/siteRegistration';
+import { SiteRegistry } from '@/features/plugins/sites/registry';
 import {
   loadCollapsedPlugins,
   loadPluginState,
@@ -12,7 +13,7 @@ import {
   setPluginSetting,
   subscribePluginState,
 } from '@/features/plugins/storage/pluginState';
-import type { PluginManifest, PluginSettingValue } from '@/features/plugins/types';
+import type { PluginManifest, PluginSettingValue, SettingField } from '@/features/plugins/types';
 
 import { Card, CardContent, CardTitle } from '../../../components/ui/card';
 import { Switch } from '../../../components/ui/switch';
@@ -22,18 +23,94 @@ import { IconChatGPT, IconClaude } from './WebsiteLogos';
 type EnabledMap = Record<string, boolean>;
 type SettingsMap = Record<string, Record<string, PluginSettingValue>>;
 
-/** Platform logo + brand color for a plugin, derived from its match hosts. */
-function platformBadge(matches: readonly string[]): { icon: ReactNode; color: string } | null {
-  const host = matches.map((m) => m.replace(/^[a-z*]+:\/\//i, '').replace(/\/.*$/, '')).join(' ');
-  if (host.includes('claude.ai')) return { icon: <IconClaude />, color: '#d97757' };
+/** Logo + default accent per known site id. */
+const SITE_BADGES: Record<string, { Icon: typeof IconClaude; color: string }> = {
+  claude: { Icon: IconClaude, color: '#d97757' },
+  chatgpt: { Icon: IconChatGPT, color: '#0ea5e9' },
+};
+
+/**
+ * Platform logo + brand color for a plugin. Prefers the site the popup is
+ * actually open on (`currentSiteId`) so a multi-site plugin (e.g. formula-copy
+ * matching both Claude and ChatGPT) shows the CURRENT site's logo — not whichever
+ * match string happens to be first. Falls back to inferring from the plugin's
+ * match hosts. Colour prefers the plugin's declared `theme.brand`.
+ */
+export function platformBadge(
+  plugin: PluginManifest,
+  currentSiteId?: string,
+): { icon: ReactNode; color: string } | null {
+  const brand = plugin.theme?.brand;
+  const current = currentSiteId ? SITE_BADGES[currentSiteId] : undefined;
+  if (current) return { icon: <current.Icon />, color: brand ?? current.color };
+  const host = plugin.matches
+    .map((m) => m.replace(/^[a-z*]+:\/\//i, '').replace(/\/.*$/, ''))
+    .join(' ');
+  if (host.includes('claude.ai'))
+    return { icon: <IconClaude />, color: brand ?? SITE_BADGES.claude.color };
   if (host.includes('chatgpt.com') || host.includes('openai.com'))
-    return { icon: <IconChatGPT />, color: '#0ea5e9' };
+    return { icon: <IconChatGPT />, color: brand ?? SITE_BADGES.chatgpt.color };
   return null;
 }
 
 /** Strip a redundant "Claude · " / "ChatGPT · " platform prefix (the logo shows it). */
 function displayName(name: string): string {
   return name.replace(/^(Claude|ChatGPT|Grok|Gemini|AI Studio)\s*[·:|]\s*/i, '');
+}
+
+/**
+ * Localized field for the current UI language, falling back to the manifest's
+ * top-level English. Plugins should use Voyager language keys (`zh`, `zh_TW`,
+ * `ja`, …), but we accept common locale variants so cached or third-party
+ * manifests do not leak English when the app is already localized.
+ */
+function localeCandidates(lang: string): string[] {
+  const normalized = lang.replace('-', '_');
+  const lower = normalized.toLowerCase();
+  const candidates = [lang, normalized];
+
+  if (lower === 'zh_tw' || lower === 'zh_hk' || lower.includes('hant')) {
+    candidates.push('zh_TW');
+  }
+  if (lower.startsWith('zh')) candidates.push('zh');
+
+  const base = normalized.split('_')[0];
+  if (base) candidates.push(base);
+  candidates.push('en');
+
+  return Array.from(new Set(candidates));
+}
+
+function pickLocalized(
+  plugin: PluginManifest,
+  field: 'name' | 'description',
+  lang: string,
+): string {
+  for (const locale of localeCandidates(lang)) {
+    const value = plugin.i18n?.[locale]?.[field];
+    if (value) return value;
+  }
+  return plugin[field];
+}
+
+function pickLocalizedSetting(
+  plugin: PluginManifest,
+  key: string,
+  field: SettingField,
+  lang: string,
+): { label: string; minLabel?: string; maxLabel?: string } {
+  const pick = (name: 'label' | 'minLabel' | 'maxLabel'): string | undefined => {
+    for (const locale of localeCandidates(lang)) {
+      const value = plugin.i18n?.[locale]?.settings?.[key]?.[name];
+      if (value) return value;
+    }
+    return undefined;
+  };
+  return {
+    label: pick('label') ?? field.label,
+    minLabel: pick('minLabel') ?? field.minLabel,
+    maxLabel: pick('maxLabel') ?? field.maxLabel,
+  };
 }
 
 /** Human-readable host list from a plugin's match patterns (e.g. "claude.ai"). */
@@ -82,6 +159,8 @@ export interface PluginManagerProps {
   readonly onRefresh?: () => void;
   /** True while a manual refresh is in flight. */
   readonly refreshing?: boolean;
+  /** URL of the active tab — selects which platform logo each plugin shows. */
+  readonly activeUrl?: string;
 }
 
 export function PluginManager({
@@ -89,13 +168,31 @@ export function PluginManager({
   loading = false,
   onRefresh,
   refreshing = false,
+  activeUrl,
 }: PluginManagerProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // The site the popup is currently open on — the "active site" the badge needs
+  // to pick the right logo for a multi-site plugin. Resolved via the shared
+  // SiteRegistry (single source of truth for "which site is this URL").
+  const currentSiteId = useMemo(
+    () =>
+      activeUrl
+        ? (SiteRegistry.createDefault().resolveByUrl(activeUrl)?.id ?? undefined)
+        : undefined,
+    [activeUrl],
+  );
   const [enabledMap, setEnabledMap] = useState<EnabledMap>({});
   const [settingsMap, setSettingsMap] = useState<SettingsMap>({});
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [deniedId, setDeniedId] = useState<string | null>(null);
   const [unsupportedId, setUnsupportedId] = useState<string | null>(null);
+
+  // Coalesced persistence for setting sliders (see handleSetting). Keyed by
+  // `${pluginId}:${settingKey}` so independent sliders keep independent timers.
+  const settingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const pendingSettings = useRef(
+    new Map<string, { id: string; key: string; value: PluginSettingValue }>(),
+  );
 
   useEffect(() => {
     let active = true;
@@ -157,8 +254,41 @@ export function PluginManager({
   }, []);
 
   const handleSetting = useCallback((id: string, key: string, value: PluginSettingValue) => {
+    // Keep the visible slider value instant via local state, but DEBOUNCE the
+    // storage write. A range drag fires onChange on every step; each persist is
+    // a read-modify-write of chrome.storage.local that, via storage.onChanged,
+    // makes the content script re-render the plugin CSS and reflow the (wide)
+    // thread. Writing per-tick would fire dozens of those round-trips + reflows
+    // per drag (and the concurrent read-modify-writes could race). We coalesce
+    // to the last value ~200ms after the user stops moving.
     setSettingsMap((prev) => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
-    void setPluginSetting(id, key, value);
+    const mapKey = `${id}:${key}`;
+    pendingSettings.current.set(mapKey, { id, key, value });
+    const existing = settingTimers.current.get(mapKey);
+    if (existing) clearTimeout(existing);
+    settingTimers.current.set(
+      mapKey,
+      setTimeout(() => {
+        settingTimers.current.delete(mapKey);
+        const pending = pendingSettings.current.get(mapKey);
+        if (!pending) return;
+        pendingSettings.current.delete(mapKey);
+        void setPluginSetting(pending.id, pending.key, pending.value);
+      }, 200),
+    );
+  }, []);
+
+  // Flush any pending setting write if the popup closes mid-drag, so the user's
+  // final value is never lost to the debounce window.
+  useEffect(() => {
+    const timers = settingTimers.current;
+    const pending = pendingSettings.current;
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+      for (const { id, key, value } of pending.values()) void setPluginSetting(id, key, value);
+      pending.clear();
+    };
   }, []);
 
   const toggleCollapsed = useCallback((id: string) => {
@@ -217,7 +347,8 @@ export function PluginManager({
           const isOpen = !collapsed.has(plugin.id);
           const hosts = siteHostsFromMatches(plugin.matches);
           const settingsSchema = plugin.contributes.settings;
-          const badge = platformBadge(plugin.matches);
+          const badge = platformBadge(plugin, currentSiteId);
+          const localizedName = pickLocalized(plugin, 'name', language);
           return (
             <div key={plugin.id} className="border-border/60 rounded-lg border p-3">
               <div className="flex items-start justify-between gap-3">
@@ -253,14 +384,14 @@ export function PluginManager({
                       </span>
                     )}
                     <span className="text-sm leading-snug font-medium break-words">
-                      {displayName(plugin.name)}
+                      {displayName(localizedName)}
                     </span>
                   </button>
 
                   {isOpen && (
                     <>
                       <p className="text-muted-foreground mt-1 text-xs leading-snug">
-                        {plugin.description}
+                        {pickLocalized(plugin, 'description', language)}
                       </p>
                       <div className="mt-1.5 flex items-center gap-2 text-[11px]">
                         {hosts && <span className="text-muted-foreground">{hosts}</span>}
@@ -277,47 +408,60 @@ export function PluginManager({
                           </a>
                         )}
                       </div>
-
-                      {/* Settings (only meaningful when enabled) */}
-                      {enabled && settingsSchema && (
-                        <div className="mt-2 space-y-2">
-                          {Object.entries(settingsSchema).map(([key, field]) => {
-                            if (field.type !== 'number') return null;
-                            const value = Number(settingsMap[plugin.id]?.[key] ?? field.default);
-                            return (
-                              <label key={key} className="block">
-                                <div className="text-muted-foreground mb-1 flex justify-between text-[11px]">
-                                  <span>{field.label}</span>
-                                  <span className="tabular-nums">{value}</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min={field.min ?? 0}
-                                  max={field.max ?? 100}
-                                  value={value}
-                                  onChange={(e) =>
-                                    handleSetting(plugin.id, key, Number(e.target.value))
-                                  }
-                                  className="accent-primary h-1.5 w-full cursor-pointer"
-                                />
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {deniedId === plugin.id && (
-                        <p className="mt-1 text-[11px] text-red-500">
-                          {t('pluginPermissionDenied')}
-                        </p>
-                      )}
-
-                      {unsupportedId === plugin.id && (
-                        <p className="mt-1 text-[11px] text-red-500">
-                          {t('pluginUnsupportedPlatform')}
-                        </p>
-                      )}
                     </>
+                  )}
+
+                  {/* Settings stay visible even when the description is collapsed, so a
+                      slider-based plugin (e.g. reading width) is always adjustable. */}
+                  {enabled && settingsSchema && (
+                    <div className="mt-2 space-y-2.5">
+                      {Object.entries(settingsSchema).map(([key, field]) => {
+                        if (field.type !== 'number') return null;
+                        const value = Number(settingsMap[plugin.id]?.[key] ?? field.default);
+                        const settingText = pickLocalizedSetting(plugin, key, field, language);
+                        return (
+                          <div key={key} title={`${settingText.label}: ${value}`}>
+                            <div className="text-muted-foreground mb-1 flex items-center justify-between gap-2 text-[11px]">
+                              <span className="min-w-0 truncate">{settingText.label}</span>
+                              <span className="shrink-0 tabular-nums">{value}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {settingText.minLabel && (
+                                <span className="text-muted-foreground shrink-0 text-[10px]">
+                                  {settingText.minLabel}
+                                </span>
+                              )}
+                              <input
+                                type="range"
+                                min={field.min ?? 0}
+                                max={field.max ?? 100}
+                                value={value}
+                                aria-label={settingText.label}
+                                onChange={(e) =>
+                                  handleSetting(plugin.id, key, Number(e.target.value))
+                                }
+                                className="accent-primary h-1.5 flex-1 cursor-pointer"
+                              />
+                              {settingText.maxLabel && (
+                                <span className="text-muted-foreground shrink-0 text-[10px]">
+                                  {settingText.maxLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {deniedId === plugin.id && (
+                    <p className="mt-1 text-[11px] text-red-500">{t('pluginPermissionDenied')}</p>
+                  )}
+
+                  {unsupportedId === plugin.id && (
+                    <p className="mt-1 text-[11px] text-red-500">
+                      {t('pluginUnsupportedPlatform')}
+                    </p>
                   )}
                 </div>
                 <Switch
@@ -325,7 +469,7 @@ export function PluginManager({
                   onChange={(e) => {
                     void handleToggle(plugin, e.target.checked);
                   }}
-                  aria-label={plugin.name}
+                  aria-label={localizedName}
                 />
               </div>
             </div>

@@ -38,12 +38,15 @@ import type {
   SelectorRef,
   SiteAdapter,
 } from '../types';
+import { type NativeHandler, getNativeHandler } from './nativeHandlers';
 
 interface ActivePlugin {
   readonly manifest: PluginManifest;
   styleEl: HTMLStyleElement | null;
   /** Current resolved setting values, substituted into the CSS via `{{key}}`. */
   settings: PluginSettings;
+  /** First-party start/stop bound to a builtin plugin id (see nativeHandlers). */
+  nativeHandler?: NativeHandler;
 }
 
 /**
@@ -97,25 +100,32 @@ export class DeclarativeEngine {
     if (this.active.has(manifest.id)) return;
     this.ensureBaseStyle();
     const entry: ActivePlugin = { manifest, styleEl: null, settings };
+    entry.nativeHandler = getNativeHandler(manifest.id);
     this.active.set(manifest.id, entry);
     this.injectStyles(entry);
     this.applyDomOps(entry);
+    // First-party builtin plugins (e.g. formula copy) run JS via a registered
+    // native handler, in lockstep with the declarative lifecycle.
+    entry.nativeHandler?.start?.();
     this.ensureObserver();
     logger.info('Plugin mounted', { id: manifest.id });
   }
 
-  /** Live-update a mounted plugin's setting values (re-renders its CSS only). */
+  /** Live-update a mounted plugin's setting values (re-renders CSS + templated DOM ops). */
   updateSettings(id: string, settings: PluginSettings): void {
     const entry = this.active.get(id);
     if (!entry) return;
     entry.settings = settings;
     if (entry.styleEl) entry.styleEl.textContent = this.renderCss(entry);
+    this.releasePlugin(id);
+    this.applyDomOps(entry);
   }
 
   unmount(id: string): void {
     const entry = this.active.get(id);
     if (!entry) return;
 
+    entry.nativeHandler?.stop?.();
     entry.styleEl?.remove();
     this.releasePlugin(id);
 
@@ -168,14 +178,18 @@ export class DeclarativeEngine {
     const styles = entry.manifest.contributes.styles;
     if (!styles || styles.length === 0) return '';
     let css = styles.map((contribution) => contribution.css).join('\n');
+    return this.renderTemplate(entry, css);
+  }
+
+  private renderTemplate(entry: ActivePlugin, value: string): string {
     const schema = entry.manifest.contributes.settings;
-    if (schema) {
-      for (const key of Object.keys(schema)) {
-        const value = entry.settings[key] ?? schema[key].default;
-        css = css.split(`{{${key}}}`).join(String(value));
-      }
+    if (!schema) return value;
+    let rendered = value;
+    for (const key of Object.keys(schema)) {
+      const settingValue = entry.settings[key] ?? schema[key].default;
+      rendered = rendered.split(`{{${key}}}`).join(String(settingValue));
     }
-    return css;
+    return rendered;
   }
 
   private resolveSelector(ref: SelectorRef): string | null {
@@ -205,11 +219,11 @@ export class DeclarativeEngine {
   private applyDomOps(entry: ActivePlugin): void {
     const ops = entry.manifest.contributes.domOps;
     if (!ops) return;
-    const id = entry.manifest.id;
-    for (const op of ops) this.applyOp(id, op);
+    for (const op of ops) this.applyOp(entry, op);
   }
 
-  private applyOp(id: string, op: DomOperation): void {
+  private applyOp(entry: ActivePlugin, op: DomOperation): void {
+    const id = entry.manifest.id;
     for (const el of this.queryAll(op.target)) {
       switch (op.op) {
         case 'addClass':
@@ -219,12 +233,12 @@ export class DeclarativeEngine {
           this.applyAddClass(id, el, PLUGIN_HIDDEN_CLASS);
           break;
         case 'setAttribute':
-          this.applySetAttribute(id, el, op.name, op.value);
+          this.applySetAttribute(id, el, op.name, this.renderTemplate(entry, op.value));
           break;
         case 'setStyle':
           if (el instanceof HTMLElement) {
             for (const [prop, value] of Object.entries(op.styles)) {
-              this.applySetStyle(id, el, prop, value);
+              this.applySetStyle(id, el, prop, this.renderTemplate(entry, value));
             }
           }
           break;
@@ -249,7 +263,10 @@ export class DeclarativeEngine {
 
   private applySetStyle(id: string, el: HTMLElement, prop: string, value: string): void {
     const perEl = mapGet(this.styleLayers, el, () => new Map<string, OverrideLayer>());
-    const layer = mapGet(perEl, prop, () => ({ original: el.style.getPropertyValue(prop), stack: [] }));
+    const layer = mapGet(perEl, prop, () => ({
+      original: el.style.getPropertyValue(prop),
+      stack: [],
+    }));
     pushLayerValue(layer, id, value);
     el.style.setProperty(prop, topValue(layer));
   }

@@ -12,8 +12,11 @@ import type { Result } from '@/core/types/common';
 import { MAX_DOM_OPS, MAX_STYLE_LENGTH } from '../constants';
 import type {
   DomOperation,
+  LocalizedSettingField,
   PluginContributions,
+  PluginLocalization,
   PluginManifest,
+  PluginTheme,
   PluginTier,
   SelectorRef,
   SettingField,
@@ -52,6 +55,92 @@ function nonEmptyString(value: unknown): value is string {
 }
 
 /**
+ * Accept ONLY hex colours for a plugin-declared brand. The value is injected
+ * into a CSS custom property and string-concatenated into a `color-mix(...)`
+ * expression at runtime, so anything other than a strict hex literal (3/4/6/8
+ * digits) could break out of the value context — reject it.
+ */
+function isHexColor(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value)
+  );
+}
+
+/** Per-field cap for localized strings (UNTRUSTED input). */
+const MAX_I18N_FIELD_LENGTH = 500;
+
+function readOptionalString(
+  raw: Record<string, unknown>,
+  key: string,
+  path: string,
+  issues?: ManifestIssue[],
+): string | undefined {
+  const value = raw[key];
+  if (value === undefined) return undefined;
+  if (nonEmptyString(value) && value.length <= MAX_I18N_FIELD_LENGTH) return value;
+  issues?.push({
+    path,
+    message: `must be a non-empty string up to ${MAX_I18N_FIELD_LENGTH} chars`,
+  });
+  return undefined;
+}
+
+function normalizeLocalizedSetting(raw: unknown): LocalizedSettingField | undefined {
+  if (!isRecord(raw)) return undefined;
+  const label = readOptionalString(raw, 'label', 'label');
+  const minLabel = readOptionalString(raw, 'minLabel', 'minLabel');
+  const maxLabel = readOptionalString(raw, 'maxLabel', 'maxLabel');
+  const entry: LocalizedSettingField = {
+    ...(label ? { label } : {}),
+    ...(minLabel ? { minLabel } : {}),
+    ...(maxLabel ? { maxLabel } : {}),
+  };
+  return Object.keys(entry).length > 0 ? entry : undefined;
+}
+
+function normalizeLocalizedSettings(
+  raw: unknown,
+): Readonly<Record<string, LocalizedSettingField>> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const settings: Record<string, LocalizedSettingField> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const entry = normalizeLocalizedSetting(value);
+    if (entry) settings[key] = entry;
+  }
+  return Object.keys(settings).length > 0 ? settings : undefined;
+}
+
+/**
+ * Sanitize an optional `i18n` map (UNTRUSTED). Keeps only localized metadata and
+ * setting labels whose fields are non-oversized strings; drops everything else.
+ * Returns undefined when nothing survives, so the field is absent on the manifest.
+ */
+function normalizeI18n(raw: unknown): Readonly<Record<string, PluginLocalization>> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: Record<string, PluginLocalization> = {};
+  for (const [locale, value] of Object.entries(raw)) {
+    if (!isRecord(value)) continue;
+    const entry: {
+      name?: string;
+      description?: string;
+      settings?: Readonly<Record<string, LocalizedSettingField>>;
+    } = {};
+    if (isString(value.name) && value.name.length <= MAX_I18N_FIELD_LENGTH) {
+      entry.name = value.name;
+    }
+    if (isString(value.description) && value.description.length <= MAX_I18N_FIELD_LENGTH) {
+      entry.description = value.description;
+    }
+    const settings = normalizeLocalizedSettings(value.settings);
+    if (settings) entry.settings = settings;
+    if (entry.name !== undefined || entry.description !== undefined || entry.settings !== undefined)
+      out[locale] = entry;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
  * Reject CSS that can fetch remote resources — `@import` and external `url()`
  * (http(s):// or protocol-relative //). A declarative plugin is meant to be
  * self-contained data; remote fetches enable tracking/exfiltration and defeat
@@ -61,6 +150,20 @@ function cssHasRemoteResource(css: string): boolean {
   if (/@import\b/i.test(css)) return true;
   if (/url\(\s*['"]?\s*(?:https?:)?\/\//i.test(css)) return true;
   return false;
+}
+
+export function validateStyleCss(css: string, path: string): ManifestIssue[] {
+  const issues: ManifestIssue[] = [];
+  if (css.length > MAX_STYLE_LENGTH) {
+    issues.push({ path, message: `exceeds ${MAX_STYLE_LENGTH} chars` });
+  }
+  if (cssHasRemoteResource(css)) {
+    issues.push({
+      path,
+      message: 'must not use @import or external url() (remote-resource fetch)',
+    });
+  }
+  return issues;
 }
 
 /** Event-handler attributes (`onclick`, `onload`, …) inject executable code. */
@@ -172,21 +275,15 @@ function normalizeContributions(raw: unknown, issues: ManifestIssue[]): PluginCo
           issues.push({ path: `contributes.styles[${index}].css`, message: 'required string' });
           return;
         }
-        if (entry.css.length > MAX_STYLE_LENGTH) {
-          issues.push({
-            path: `contributes.styles[${index}].css`,
-            message: `exceeds ${MAX_STYLE_LENGTH} chars`,
-          });
+        const cssIssues = validateStyleCss(entry.css, `contributes.styles[${index}].css`);
+        if (cssIssues.length > 0) {
+          issues.push(...cssIssues);
           return;
         }
-        if (cssHasRemoteResource(entry.css)) {
-          issues.push({
-            path: `contributes.styles[${index}].css`,
-            message: 'must not use @import or external url() (remote-resource fetch)',
-          });
-          return;
-        }
-        styles.push({ css: entry.css });
+        styles.push({
+          css: entry.css,
+          ...(isString(entry.source) ? { source: entry.source } : {}),
+        });
       });
       result.styles = styles;
     }
@@ -239,10 +336,14 @@ function normalizeContributions(raw: unknown, issues: ManifestIssue[]): PluginCo
           issues.push({ path: `${path}.default`, message: 'required boolean | number | string' });
           continue;
         }
+        const minLabel = readOptionalString(rawField, 'minLabel', `${path}.minLabel`, issues);
+        const maxLabel = readOptionalString(rawField, 'maxLabel', `${path}.maxLabel`, issues);
         settings[key] = {
           type: rawField.type as SettingField['type'],
           label: rawField.label,
           default: fallback,
+          ...(minLabel ? { minLabel } : {}),
+          ...(maxLabel ? { maxLabel } : {}),
           ...(typeof rawField.min === 'number' ? { min: rawField.min } : {}),
           ...(typeof rawField.max === 'number' ? { max: rawField.max } : {}),
           ...(Array.isArray(rawField.options)
@@ -285,6 +386,17 @@ export function validateManifest(input: unknown): Result<PluginManifest, Manifes
 
   const contributes = normalizeContributions(input.contributes, issues);
 
+  let theme: PluginTheme | undefined;
+  if (input.theme !== undefined) {
+    if (!isRecord(input.theme) || !isHexColor(input.theme.brand)) {
+      issues.push({ path: 'theme.brand', message: 'must be a hex colour string (e.g. #d97757)' });
+    } else {
+      theme = { brand: input.theme.brand };
+    }
+  }
+
+  const i18n = normalizeI18n(input.i18n);
+
   if (issues.length > 0) return { success: false, error: issues };
 
   const manifest: PluginManifest = {
@@ -300,6 +412,8 @@ export function validateManifest(input: unknown): Result<PluginManifest, Manifes
     tier: input.tier as PluginTier,
     matches: (input.matches as string[]).slice(),
     contributes,
+    ...(theme ? { theme } : {}),
+    ...(i18n ? { i18n } : {}),
   };
   return { success: true, data: manifest };
 }
