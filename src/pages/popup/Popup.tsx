@@ -18,6 +18,7 @@ import {
   shouldShowSafariUpdateReminder,
   supportsOptionalHostPermissions,
 } from '@/core/utils/browser';
+import { ensureNotificationsPermission } from '@/core/utils/notificationsPermission';
 import { shouldShowUpdateReminderForCurrentVersion } from '@/core/utils/updateReminder';
 import { compareVersions } from '@/core/utils/version';
 import { resolveWatermarkSettings } from '@/core/utils/watermarkSettings';
@@ -361,6 +362,7 @@ interface SettingsUpdate {
   mermaidEnabled?: boolean;
   quoteReplyEnabled?: boolean;
   responseCompleteNotificationEnabled?: boolean;
+  usageStatusEnabled?: boolean;
   defaultModelAutoApplyEnabled?: boolean;
   ctrlEnterSendEnabled?: boolean;
   aiStudioEnterSendEnabled?: boolean;
@@ -492,6 +494,7 @@ export default function Popup() {
   const [quoteReplyEnabled, setQuoteReplyEnabled] = useState<boolean>(true);
   const [responseCompleteNotificationEnabled, setResponseCompleteNotificationEnabled] =
     useState<boolean>(false);
+  const [usageStatusEnabled, setUsageStatusEnabled] = useState<boolean>(false);
   const [defaultModelAutoApplyEnabled, setDefaultModelAutoApplyEnabled] = useState<boolean>(true);
   const [folderProjectEnabled, setFolderProjectEnabled] = useState<boolean>(false);
   const [ctrlEnterSendEnabled, setCtrlEnterSendEnabled] = useState<boolean>(false);
@@ -668,6 +671,8 @@ export default function Popup() {
         payload[StorageKeys.RESPONSE_COMPLETE_NOTIFICATION_ENABLED] =
           settings.responseCompleteNotificationEnabled;
       }
+      if (typeof settings.usageStatusEnabled === 'boolean')
+        payload[StorageKeys.USAGE_STATUS_ENABLED] = settings.usageStatusEnabled;
       if (typeof settings.defaultModelAutoApplyEnabled === 'boolean')
         payload[StorageKeys.DEFAULT_MODEL_AUTO_APPLY] = settings.defaultModelAutoApplyEnabled;
       if (typeof settings.folderProjectEnabled === 'boolean')
@@ -1056,6 +1061,7 @@ export default function Popup() {
           gvTabTitleUpdateEnabled: true,
           gvMermaidEnabled: true,
           gvQuoteReplyEnabled: true,
+          [StorageKeys.USAGE_STATUS_ENABLED]: false,
           [StorageKeys.DEFAULT_MODEL_AUTO_APPLY]: true,
           [StorageKeys.FOLDER_PROJECT_ENABLED]: false,
           gvCtrlEnterSend: false,
@@ -1129,6 +1135,7 @@ export default function Popup() {
           setResponseCompleteNotificationEnabled(
             res?.[StorageKeys.RESPONSE_COMPLETE_NOTIFICATION_ENABLED] === true,
           );
+          setUsageStatusEnabled(res?.[StorageKeys.USAGE_STATUS_ENABLED] === true);
           setDefaultModelAutoApplyEnabled(res?.[StorageKeys.DEFAULT_MODEL_AUTO_APPLY] !== false);
           setFolderProjectEnabled(res?.[StorageKeys.FOLDER_PROJECT_ENABLED] === true);
           setCtrlEnterSendEnabled(res?.gvCtrlEnterSend === true);
@@ -2898,9 +2905,35 @@ export default function Popup() {
                 <Switch
                   id="response-complete-notification"
                   checked={responseCompleteNotificationEnabled}
+                  onChange={async (e) => {
+                    const next = e.target.checked;
+                    // "notifications" is an optional permission — request it
+                    // inside this user gesture before enabling the feature.
+                    if (next && !(await ensureNotificationsPermission())) {
+                      setResponseCompleteNotificationEnabled(false);
+                      return;
+                    }
+                    setResponseCompleteNotificationEnabled(next);
+                    apply({ responseCompleteNotificationEnabled: next });
+                  }}
+                />
+              </div>
+              <div className="group flex items-center justify-between">
+                <div className="flex-1">
+                  <Label
+                    htmlFor="usage-status-enabled"
+                    className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                  >
+                    {t('usageStatusToggle')}
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-xs">{t('usageStatusToggleHint')}</p>
+                </div>
+                <Switch
+                  id="usage-status-enabled"
+                  checked={usageStatusEnabled}
                   onChange={(e) => {
-                    setResponseCompleteNotificationEnabled(e.target.checked);
-                    apply({ responseCompleteNotificationEnabled: e.target.checked });
+                    setUsageStatusEnabled(e.target.checked);
+                    apply({ usageStatusEnabled: e.target.checked });
                   }}
                 />
               </div>
