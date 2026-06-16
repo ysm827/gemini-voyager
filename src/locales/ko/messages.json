@@ -287,6 +287,10 @@
     "message": "업데이트 소스가 아직 동기화되지 않았습니다. 몇 시간 후에 다시 시도해 주세요",
     "description": "Shown on Safari when the DMG file is not yet available on GitHub releases"
   },
+  "fableVerifiedBadgeAlt": {
+    "message": "Fable 5 Verified",
+    "description": "Alt text for the Fable 5 Verified badge in the popup footer"
+  },
   "starProject": {
     "message": "지원하기 ⭐",
     "description": "Github callout"
@@ -1596,8 +1600,8 @@
     "description": "Accessible label / tooltip for the usage status pill near the composer."
   },
   "usageStatusDaily": {
-    "message": "일간",
-    "description": "Label for the rolling daily usage bar in the usage status pill."
+    "message": "5h",
+    "description": "Label for the rolling 5-hour usage window bar in the usage status pill."
   },
   "usageStatusWeekly": {
     "message": "주간",
@@ -1636,7 +1640,7 @@
     "description": "Popup toggle label to enable the usage status pill."
   },
   "usageStatusToggleHint": {
-    "message": "채팅창 근처에 일간 및 주간 사용 한도를 표시합니다",
+    "message": "채팅창 근처에 5h 및 주간 사용 한도를 표시합니다",
     "description": "Popup helper text under the usage status bar toggle."
   },
   "export_select_mode_select_all": {
