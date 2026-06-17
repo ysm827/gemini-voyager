@@ -15,10 +15,10 @@
     <img src="https://img.shields.io/badge/Brave-✓-FB542B?style=flat-square&logo=brave&logoColor=white" alt="Brave">
   </p>
   <p>
-    <img src="https://img.shields.io/github/stars/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub stars">
-    <img src="https://img.shields.io/github/forks/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub forks">
-    <img src="https://img.shields.io/github/v/release/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="Latest version">
-    <img src="https://img.shields.io/github/downloads/Nagi-ovo/gemini-voyager/total?style=flat-square&logo=github" alt="GitHub downloads">
+    <img src="../badges/github-stars.svg" alt="GitHub stars">
+    <img src="../badges/github-forks.svg" alt="GitHub forks">
+    <img src="../badges/github-release.svg" alt="Latest version">
+    <img src="../badges/github-downloads.svg" alt="GitHub downloads">
     <img src="https://img.shields.io/chrome-web-store/users/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store users">
     <img src="https://img.shields.io/chrome-web-store/rating/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store rating">
     <img src="https://img.shields.io/amo/users/gemini-voyager?style=flat-square&logo=firefox" alt="Firefox Add-ons users">
@@ -136,10 +136,10 @@ Por eso creamos **Voyager**. No es solo una herramienta; es un compañero que te
 </div>
 
 <p align="center">
-  <sub><b>Usuarios de Edge:</b> instala Voyager desde el enlace de Chrome Web Store de arriba. Las revisiones de Edge Add-ons son demasiado lentas, por lo que ya no recomendamos la versión dedicada de la tienda Edge.</sub>
+  <sub><b>Usuarios de Edge:</b> Voyager seguirá manteniendo y publicando la versión de Edge Add-ons para quienes necesitan Edge en móvil o tablet. Si la revisión se retrasa, siguen disponibles Chrome Web Store y los paquetes manuales de GitHub.</sub>
 </p>
 
-> **Estado de la Tienda:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge vía Chrome Web Store
+> **Estado de la Tienda:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge ✅
 
 Para **instalación manual** o **compilaciones de desarrollo**, consulta la [Guía de Instalación](https://voyager.nagi.fun/es/guide/installation).
 

@@ -15,10 +15,10 @@
     <img src="https://img.shields.io/badge/Brave-✓-FB542B?style=flat-square&logo=brave&logoColor=white" alt="Brave">
   </p>
   <p>
-    <img src="https://img.shields.io/github/stars/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub Star">
-    <img src="https://img.shields.io/github/forks/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub Fork">
-    <img src="https://img.shields.io/github/v/release/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="最新バージョン">
-    <img src="https://img.shields.io/github/downloads/Nagi-ovo/gemini-voyager/total?style=flat-square&logo=github" alt="GitHub ダウンロード数">
+    <img src="../badges/github-stars.svg" alt="GitHub Star">
+    <img src="../badges/github-forks.svg" alt="GitHub Fork">
+    <img src="../badges/github-release.svg" alt="最新バージョン">
+    <img src="../badges/github-downloads.svg" alt="GitHub ダウンロード数">
     <img src="https://img.shields.io/chrome-web-store/users/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome ユーザー数">
     <img src="https://img.shields.io/chrome-web-store/rating/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome 評価">
     <img src="https://img.shields.io/amo/users/gemini-voyager?style=flat-square&logo=firefox" alt="Firefox ユーザー数">
@@ -136,10 +136,10 @@
 </div>
 
 <p align="center">
-  <sub><b>Edge ユーザー：</b>上記の Chrome ストアリンクから Voyager をインストールしてください。Edge Add-ons の審査が遅すぎるため、専用の Edge ストア版は今後おすすめしません。</sub>
+  <sub><b>Edge ユーザー：</b>モバイルやタブレットで Edge が必要なユーザーのため、Voyager は Edge Add-ons 版の保守と公開を継続します。審査が遅れる場合は Chrome Web Store 版または GitHub の手動パッケージも利用できます。</sub>
 </p>
 
-> **ストア状況：** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge は Chrome ストア経由
+> **ストア状況：** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge ✅
 
 **手動インストール**や**開発用ビルド**については、[インストールガイド](https://voyager.nagi.fun/ja/guide/installation)を参照してください。
 

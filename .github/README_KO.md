@@ -15,10 +15,10 @@
     <img src="https://img.shields.io/badge/Brave-✓-FB542B?style=flat-square&logo=brave&logoColor=white" alt="Brave">
   </p>
   <p>
-    <img src="https://img.shields.io/github/stars/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub stars">
-    <img src="https://img.shields.io/github/forks/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub forks">
-    <img src="https://img.shields.io/github/v/release/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="Latest version">
-    <img src="https://img.shields.io/github/downloads/Nagi-ovo/gemini-voyager/total?style=flat-square&logo=github" alt="GitHub downloads">
+    <img src="../badges/github-stars.svg" alt="GitHub stars">
+    <img src="../badges/github-forks.svg" alt="GitHub forks">
+    <img src="../badges/github-release.svg" alt="Latest version">
+    <img src="../badges/github-downloads.svg" alt="GitHub downloads">
     <img src="https://img.shields.io/chrome-web-store/users/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store users">
     <img src="https://img.shields.io/chrome-web-store/rating/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store rating">
     <img src="https://img.shields.io/amo/users/gemini-voyager?style=flat-square&logo=firefox" alt="Firefox Add-ons users">
@@ -136,10 +136,10 @@
 </div>
 
 <p align="center">
-  <sub><b>Edge 사용자:</b> 위의 Chrome 웹 스토어 링크에서 Voyager를 설치하세요. Edge Add-ons 심사가 너무 느려서 전용 Edge 스토어 버전은 더 이상 권장하지 않습니다.</sub>
+  <sub><b>Edge 사용자:</b> 모바일이나 태블릿에서 Edge가 필요한 사용자를 위해 Voyager는 Edge Add-ons 버전을 계속 유지하고 배포합니다. 심사가 지연되면 Chrome Web Store 버전이나 GitHub 수동 패키지를 사용할 수 있습니다.</sub>
 </p>
 
-> **스토어 상태:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge는 Chrome 웹 스토어 통해 설치
+> **스토어 상태:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge ✅
 
 **수동 설치** 또는 **개발 빌드**에 대해서는 [설치 가이드](https://voyager.nagi.fun/ko/guide/installation)를 참조하세요.
 

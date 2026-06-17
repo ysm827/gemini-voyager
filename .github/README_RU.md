@@ -15,10 +15,10 @@
     <img src="https://img.shields.io/badge/Brave-✓-FB542B?style=flat-square&logo=brave&logoColor=white" alt="Brave">
   </p>
   <p>
-    <img src="https://img.shields.io/github/stars/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub stars">
-    <img src="https://img.shields.io/github/forks/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub forks">
-    <img src="https://img.shields.io/github/v/release/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="Latest version">
-    <img src="https://img.shields.io/github/downloads/Nagi-ovo/gemini-voyager/total?style=flat-square&logo=github" alt="GitHub downloads">
+    <img src="../badges/github-stars.svg" alt="GitHub stars">
+    <img src="../badges/github-forks.svg" alt="GitHub forks">
+    <img src="../badges/github-release.svg" alt="Latest version">
+    <img src="../badges/github-downloads.svg" alt="GitHub downloads">
     <img src="https://img.shields.io/chrome-web-store/users/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store users">
     <img src="https://img.shields.io/chrome-web-store/rating/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store rating">
     <img src="https://img.shields.io/amo/users/gemini-voyager?style=flat-square&logo=firefox" alt="Firefox Add-ons users">
@@ -136,10 +136,10 @@
 </div>
 
 <p align="center">
-  <sub><b>Пользователям Edge:</b> устанавливайте Voyager по ссылке Chrome Web Store выше. Проверки в Edge Add-ons слишком медленные, поэтому отдельная версия для магазина Edge больше не рекомендуется.</sub>
+  <sub><b>Пользователям Edge:</b> Voyager продолжит поддерживать и публиковать версию Edge Add-ons для тех, кому нужен Edge на телефоне или планшете. Если проверка задержится, остаются Chrome Web Store и ручные пакеты GitHub.</sub>
 </p>
 
-> **Статус в магазинах:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge через Chrome Web Store
+> **Статус в магазинах:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge ✅
 
 Для **ручной установки** или **сборки для разработки**, пожалуйста, обратитесь к [Руководству по установке](https://voyager.nagi.fun/ru/guide/installation).
 

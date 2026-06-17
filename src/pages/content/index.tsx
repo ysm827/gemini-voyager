@@ -42,6 +42,7 @@ import { startBrandTheme } from './platformTheme';
 import { startPreventAutoScroll } from './preventAutoScroll/index';
 import { startPromptManager } from './prompt/index';
 import { startQuoteReply } from './quoteReply/index';
+import { startRemoteAnnouncements } from './remoteAnnouncements/index';
 import { startResponseCompleteNotification } from './responseNotification/index';
 import { startSendBehavior } from './sendBehavior/index';
 import { startSidebarAutoHide } from './sidebarAutoHide';
@@ -49,6 +50,7 @@ import { startSidebarWidthAdjuster } from './sidebarWidth';
 import { startTimeline } from './timeline/index';
 import { startTitleUpdater } from './titleUpdater';
 import { startUsageStatus } from './usageStatus/index';
+import { maybeShowUsageCoachmark } from './usageStatus/usageCoachmark';
 import { startUserLatex } from './userLatex/index';
 import { startRainEffect, startSakuraEffect, startSnowEffect } from './visualEffects';
 import { startWatermarkRemover, stopWatermarkRemover } from './watermarkRemover/index';
@@ -97,6 +99,7 @@ let pluginHostCleanup: (() => void) | null = null;
 let brandThemeCleanup: (() => void) | null = null;
 let titleUpdaterCleanup: (() => void) | null = null;
 let usageStatusCleanup: (() => void) | null = null;
+let remoteAnnouncementsCleanup: (() => void) | null = null;
 
 async function isForkFeatureEnabled(): Promise<boolean> {
   try {
@@ -105,6 +108,11 @@ async function isForkFeatureEnabled(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function showUsageCoachmarkWhenChangelogIsIdle(): void {
+  if (document.querySelector('.gv-changelog-overlay')) return;
+  void maybeShowUsageCoachmark();
 }
 
 /**
@@ -333,7 +341,11 @@ async function initializeFeatures(): Promise<void> {
         await delay(LIGHT_FEATURE_INIT_DELAY);
       }
 
-      startChangelog();
+      // Introduce the opt-in usage pill once the changelog is out of the way;
+      // if the changelog doesn't show (already read / badge mode), still try.
+      void startChangelog({ onClosed: showUsageCoachmarkWhenChangelogIsIdle }).then(() => {
+        window.setTimeout(showUsageCoachmarkWhenChangelogIsIdle, 1200);
+      });
       await delay(LIGHT_FEATURE_INIT_DELAY);
     }
 
@@ -506,6 +518,11 @@ function handleVisibilityChange(): void {
       hostname.includes('business.gemini.google') ||
       hostname.includes('aistudio.google.com') ||
       hostname.includes('aistudio.google.cn');
+    const pluginPlatformId = resolvePluginPlatformId(location.href);
+
+    if (isSupportedSite || pluginPlatformId) {
+      remoteAnnouncementsCleanup = startRemoteAnnouncements();
+    }
 
     // Initialize KaTeX configuration early to suppress Unicode warnings
     // This must run before any formulas are rendered on the page
@@ -526,7 +543,7 @@ function handleVisibilityChange(): void {
       // the copy toast with the site's brand colour. We set `initialized` so the
       // visibilitychange handler doesn't later fall into initializeFeatures()
       // (which is Gemini/AI-Studio/custom-site shaped, not plugin-platform).
-      if (resolvePluginPlatformId(location.href)) {
+      if (pluginPlatformId) {
         console.log('[Gemini Voyager] Plugin platform: prompt manager');
         initialized = true;
         void startPromptManager()
@@ -635,6 +652,10 @@ function handleVisibilityChange(): void {
         if (brandThemeCleanup) {
           brandThemeCleanup();
           brandThemeCleanup = null;
+        }
+        if (remoteAnnouncementsCleanup) {
+          remoteAnnouncementsCleanup();
+          remoteAnnouncementsCleanup = null;
         }
         if (titleUpdaterCleanup) {
           titleUpdaterCleanup();

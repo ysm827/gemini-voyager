@@ -15,10 +15,10 @@
     <img src="https://img.shields.io/badge/Brave-✓-FB542B?style=flat-square&logo=brave&logoColor=white" alt="Brave">
   </p>
   <p>
-    <img src="https://img.shields.io/github/stars/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub stars">
-    <img src="https://img.shields.io/github/forks/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="GitHub forks">
-    <img src="https://img.shields.io/github/v/release/Nagi-ovo/gemini-voyager?style=flat-square&logo=github" alt="Latest version">
-    <img src="https://img.shields.io/github/downloads/Nagi-ovo/gemini-voyager/total?style=flat-square&logo=github" alt="GitHub downloads">
+    <img src="badges/github-stars.svg" alt="GitHub stars">
+    <img src="badges/github-forks.svg" alt="GitHub forks">
+    <img src="badges/github-release.svg" alt="Latest version">
+    <img src="badges/github-downloads.svg" alt="GitHub downloads">
     <img src="https://img.shields.io/chrome-web-store/users/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store users">
     <img src="https://img.shields.io/chrome-web-store/rating/iifacdnjakkhjjiengaffnegbndgingi?style=flat-square&logo=google-chrome" alt="Chrome Web Store rating">
     <img src="https://img.shields.io/amo/users/gemini-voyager?style=flat-square&logo=firefox" alt="Firefox Add-ons users">
@@ -136,10 +136,10 @@ That's why I built **Voyager**. It's not just a tool; it's a companion that help
 </div>
 
 <p align="center">
-  <sub><b>Edge users:</b> please install Voyager from the Chrome Web Store link above. Edge Add-ons reviews are too slow, so the dedicated Edge store build is no longer recommended.</sub>
+  <sub><b>Edge users:</b> Voyager is still maintained on Edge Add-ons for users who need Edge on mobile or tablet. If review is delayed, Chrome Web Store and GitHub manual packages remain available.</sub>
 </p>
 
-> **Store Status:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge via Chrome Web Store
+> **Store Status:** Chrome ✅ · Firefox ✅ · Safari ✅ · Edge ✅
 
 For **manual installation** or **development builds**, please refer to the [Installation Guide](https://voyager.nagi.fun/en/guide/installation).
 
