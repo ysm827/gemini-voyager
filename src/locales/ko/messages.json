@@ -295,6 +295,10 @@
     "message": "지원하기 ⭐",
     "description": "Github callout"
   },
+  "sponsorMe": {
+    "message": "후원하기",
+    "description": "Sponsor callout"
+  },
   "officialDocs": {
     "message": "공식 문서",
     "description": "Official docs link"
@@ -310,6 +314,14 @@
   "folder_create": {
     "message": "폴더 생성",
     "description": "Create folder button tooltip"
+  },
+  "folder_search_placeholder": {
+    "message": "폴더 및 채팅 검색",
+    "description": "Folder sidebar search input placeholder"
+  },
+  "folder_search_empty": {
+    "message": "일치하는 폴더 또는 채팅이 없습니다",
+    "description": "Folder sidebar empty state when search has no matches"
   },
   "folder_name_prompt": {
     "message": "폴더 이름을 입력하세요:",
@@ -702,6 +714,10 @@
   "hideArchivedConversations": {
     "message": "보관된 대화 숨기기",
     "description": "Hide conversations that are in folders from the main list"
+  },
+  "showFolderSearch": {
+    "message": "폴더 검색 표시",
+    "description": "Popup toggle that shows or hides the folder sidebar search box"
   },
   "hideArchivedNudgeTitle": {
     "message": "사이드바 정리하기",
@@ -2187,8 +2203,32 @@
     "message": "사용량 표시줄 보기",
     "description": "Inline toggle label in the usage-pill coachmark"
   },
+  "folderSearchCoachmarkTitle": {
+    "message": "신규: 폴더 검색",
+    "description": "Coachmark title introducing folder search"
+  },
+  "folderSearchCoachmarkBody": {
+    "message": "폴더 영역에서 폴더와 채팅 제목을 바로 검색하세요.",
+    "description": "Coachmark body text introducing folder search"
+  },
+  "folderSearchCoachmarkToggle": {
+    "message": "폴더 검색 표시",
+    "description": "Inline toggle label in the folder-search coachmark"
+  },
   "coachmarkDismiss": {
     "message": "나중에",
     "description": "Generic dismiss/maybe-later label for feature coachmarks"
+  },
+  "themeColor": {
+    "message": "테마 색상",
+    "description": "Accent/theme colour picker title"
+  },
+  "themeColorDesc": {
+    "message": "이 사이트에 대한 Voyager 테마 색상을 사용자 지정합니다.",
+    "description": "Accent colour picker description"
+  },
+  "themeColorReset": {
+    "message": "기본값으로 재설정",
+    "description": "Reset accent colour to default"
   }
 }

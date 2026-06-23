@@ -295,6 +295,10 @@
     "message": "Apóyame ⭐",
     "description": "Github callout"
   },
+  "sponsorMe": {
+    "message": "Patrocíname",
+    "description": "Sponsor callout"
+  },
   "officialDocs": {
     "message": "Documentación",
     "description": "Official docs link"
@@ -310,6 +314,14 @@
   "folder_create": {
     "message": "Crear carpeta",
     "description": "Create folder button tooltip"
+  },
+  "folder_search_placeholder": {
+    "message": "Buscar carpetas y chats",
+    "description": "Folder sidebar search input placeholder"
+  },
+  "folder_search_empty": {
+    "message": "No hay carpetas ni chats coincidentes",
+    "description": "Folder sidebar empty state when search has no matches"
   },
   "folder_name_prompt": {
     "message": "Introduce el nombre de la carpeta:",
@@ -702,6 +714,10 @@
   "hideArchivedConversations": {
     "message": "Ocultar conversaciones archivadas",
     "description": "Hide conversations that are in folders from the main list"
+  },
+  "showFolderSearch": {
+    "message": "Mostrar búsqueda de carpetas",
+    "description": "Popup toggle that shows or hides the folder sidebar search box"
   },
   "hideArchivedNudgeTitle": {
     "message": "Ordena tu barra lateral",
@@ -2187,8 +2203,32 @@
     "message": "Mostrar la píldora de uso",
     "description": "Inline toggle label in the usage-pill coachmark"
   },
+  "folderSearchCoachmarkTitle": {
+    "message": "Nuevo: búsqueda de carpetas",
+    "description": "Coachmark title introducing folder search"
+  },
+  "folderSearchCoachmarkBody": {
+    "message": "Busca títulos de carpetas y chats directamente desde la sección Carpetas.",
+    "description": "Coachmark body text introducing folder search"
+  },
+  "folderSearchCoachmarkToggle": {
+    "message": "Mostrar búsqueda de carpetas",
+    "description": "Inline toggle label in the folder-search coachmark"
+  },
   "coachmarkDismiss": {
     "message": "Quizás más tarde",
     "description": "Generic dismiss/maybe-later label for feature coachmarks"
+  },
+  "themeColor": {
+    "message": "Color de acento",
+    "description": "Accent/theme colour picker title"
+  },
+  "themeColorDesc": {
+    "message": "Personaliza el color de acento de Voyager para este sitio.",
+    "description": "Accent colour picker description"
+  },
+  "themeColorReset": {
+    "message": "Restablecer valores predeterminados",
+    "description": "Reset accent colour to default"
   }
 }

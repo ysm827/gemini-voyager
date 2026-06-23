@@ -295,6 +295,10 @@
     "message": "Поддержать меня ⭐",
     "description": "Github callout"
   },
+  "sponsorMe": {
+    "message": "Спонсировать меня",
+    "description": "Sponsor callout"
+  },
   "officialDocs": {
     "message": "Официальная документация",
     "description": "Official docs link"
@@ -310,6 +314,14 @@
   "folder_create": {
     "message": "Создать папку",
     "description": "Create folder button tooltip"
+  },
+  "folder_search_placeholder": {
+    "message": "Поиск папок и чатов",
+    "description": "Folder sidebar search input placeholder"
+  },
+  "folder_search_empty": {
+    "message": "Нет подходящих папок или чатов",
+    "description": "Folder sidebar empty state when search has no matches"
   },
   "folder_name_prompt": {
     "message": "Введите имя папки:",
@@ -702,6 +714,10 @@
   "hideArchivedConversations": {
     "message": "Скрыть архивные разговоры",
     "description": "Hide conversations that are in folders from the main list"
+  },
+  "showFolderSearch": {
+    "message": "Показывать поиск папок",
+    "description": "Popup toggle that shows or hides the folder sidebar search box"
   },
   "hideArchivedNudgeTitle": {
     "message": "Наведите порядок на боковой панели",
@@ -2187,8 +2203,32 @@
     "message": "Показать индикатор использования",
     "description": "Inline toggle label in the usage-pill coachmark"
   },
+  "folderSearchCoachmarkTitle": {
+    "message": "Новое: поиск папок",
+    "description": "Coachmark title introducing folder search"
+  },
+  "folderSearchCoachmarkBody": {
+    "message": "Ищите названия папок и чатов прямо в разделе папок.",
+    "description": "Coachmark body text introducing folder search"
+  },
+  "folderSearchCoachmarkToggle": {
+    "message": "Показывать поиск папок",
+    "description": "Inline toggle label in the folder-search coachmark"
+  },
   "coachmarkDismiss": {
     "message": "Позже",
     "description": "Generic dismiss/maybe-later label for feature coachmarks"
+  },
+  "themeColor": {
+    "message": "Акцентный цвет",
+    "description": "Accent/theme colour picker title"
+  },
+  "themeColorDesc": {
+    "message": "Настройте акцентный цвет Voyager для этого сайта.",
+    "description": "Accent colour picker description"
+  },
+  "themeColorReset": {
+    "message": "Сбросить по умолчанию",
+    "description": "Reset accent colour to default"
   }
 }

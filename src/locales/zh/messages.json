@@ -295,6 +295,10 @@
     "message": "为项目点亮 ⭐️",
     "description": "Github 引导"
   },
+  "sponsorMe": {
+    "message": "为我赞助",
+    "description": "赞助引导"
+  },
   "officialDocs": {
     "message": "官方文档",
     "description": "Official docs link"
@@ -310,6 +314,14 @@
   "folder_create": {
     "message": "创建文件夹",
     "description": "创建文件夹按钮提示"
+  },
+  "folder_search_placeholder": {
+    "message": "搜索文件夹和对话",
+    "description": "文件夹侧边栏搜索输入占位符"
+  },
+  "folder_search_empty": {
+    "message": "没有匹配的文件夹或对话",
+    "description": "文件夹侧边栏搜索无匹配结果时的空状态"
   },
   "folder_name_prompt": {
     "message": "输入文件夹名称：",
@@ -702,6 +714,10 @@
   "hideArchivedConversations": {
     "message": "隐藏已归档对话",
     "description": "从主列表隐藏已添加到文件夹的对话"
+  },
+  "showFolderSearch": {
+    "message": "显示文件夹搜索",
+    "description": "Popup toggle that shows or hides the folder sidebar search box"
   },
   "hideArchivedNudgeTitle": {
     "message": "整理你的侧边栏",
@@ -2187,8 +2203,32 @@
     "message": "显示用量胶囊",
     "description": "Inline toggle label in the usage-pill coachmark"
   },
+  "folderSearchCoachmarkTitle": {
+    "message": "新增：文件夹搜索",
+    "description": "Coachmark title introducing folder search"
+  },
+  "folderSearchCoachmarkBody": {
+    "message": "直接在文件夹区域搜索文件夹和对话标题。",
+    "description": "Coachmark body text introducing folder search"
+  },
+  "folderSearchCoachmarkToggle": {
+    "message": "显示文件夹搜索",
+    "description": "Inline toggle label in the folder-search coachmark"
+  },
   "coachmarkDismiss": {
     "message": "以后再说",
     "description": "Generic dismiss/maybe-later label for feature coachmarks"
+  },
+  "themeColor": {
+    "message": "主题色",
+    "description": "Accent/theme colour picker title"
+  },
+  "themeColorDesc": {
+    "message": "为当前网站自定义 Voyager 的主题色。",
+    "description": "Accent colour picker description"
+  },
+  "themeColorReset": {
+    "message": "恢复默认",
+    "description": "Reset accent colour to default"
   }
 }

@@ -295,6 +295,10 @@
     "message": "Me soutenir ⭐",
     "description": "Github callout"
   },
+  "sponsorMe": {
+    "message": "Me soutenir",
+    "description": "Sponsor callout"
+  },
   "officialDocs": {
     "message": "Documentation",
     "description": "Official docs link"
@@ -310,6 +314,14 @@
   "folder_create": {
     "message": "Créer un dossier",
     "description": "Create folder button tooltip"
+  },
+  "folder_search_placeholder": {
+    "message": "Rechercher des dossiers et des discussions",
+    "description": "Folder sidebar search input placeholder"
+  },
+  "folder_search_empty": {
+    "message": "Aucun dossier ou discussion correspondant",
+    "description": "Folder sidebar empty state when search has no matches"
   },
   "folder_name_prompt": {
     "message": "Nom du dossier :",
@@ -702,6 +714,10 @@
   "hideArchivedConversations": {
     "message": "Masquer les discussions archivées",
     "description": "Hide conversations that are in folders from the main list"
+  },
+  "showFolderSearch": {
+    "message": "Afficher la recherche de dossiers",
+    "description": "Popup toggle that shows or hides the folder sidebar search box"
   },
   "hideArchivedNudgeTitle": {
     "message": "Rangez votre barre latérale",
@@ -2187,8 +2203,32 @@
     "message": "Afficher la pastille d'utilisation",
     "description": "Inline toggle label in the usage-pill coachmark"
   },
+  "folderSearchCoachmarkTitle": {
+    "message": "Nouveau : recherche de dossiers",
+    "description": "Coachmark title introducing folder search"
+  },
+  "folderSearchCoachmarkBody": {
+    "message": "Recherchez les titres de dossiers et de discussions directement depuis la section Dossiers.",
+    "description": "Coachmark body text introducing folder search"
+  },
+  "folderSearchCoachmarkToggle": {
+    "message": "Afficher la recherche de dossiers",
+    "description": "Inline toggle label in the folder-search coachmark"
+  },
   "coachmarkDismiss": {
     "message": "Plus tard",
     "description": "Generic dismiss/maybe-later label for feature coachmarks"
+  },
+  "themeColor": {
+    "message": "Couleur d'accent",
+    "description": "Accent/theme colour picker title"
+  },
+  "themeColorDesc": {
+    "message": "Personnalisez la couleur d'accent de Voyager pour ce site.",
+    "description": "Accent colour picker description"
+  },
+  "themeColorReset": {
+    "message": "Réinitialiser par défaut",
+    "description": "Reset accent colour to default"
   }
 }
