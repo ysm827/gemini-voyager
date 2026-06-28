@@ -1,9 +1,9 @@
 ---
 name: release
-description: Cut a new gemini-voyager release — open-issue triage, preflight checks, version bump, 10-locale changelog, commit, tag, push, curated GitHub release body, Chrome/Firefox artifacts, optional legacy Edge zip, and Safari DMG. Use whenever the user says "发版", "release", "bump", "cut a release", "ship vX.Y.Z", or otherwise signals shipping a new version. Also use when the user wants just an Edge compatibility zip or Safari DMG for an existing release.
+description: Cut a new gemini-voyager release — open-issue triage, preflight checks, version bump, 10-locale changelog, commit, tag, push, curated GitHub release body, Chrome/Firefox artifacts, Chrome Web Store + Edge Add-ons publishing, and Safari DMG. Use whenever the user says "发版", "release", "bump", "cut a release", "ship vX.Y.Z", or otherwise signals shipping a new version. Also use when the user wants just an Edge Add-ons retry/package or Safari DMG for an existing release.
 user-invocable: true
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Release Workflow
@@ -12,7 +12,7 @@ metadata:
 
 Copy this checklist into your response and check items off as you progress. Each step gates the next — don't skip ahead.
 
-**Two places to parallelize for wall-clock (the gates still hold; only the *work* overlaps):** ① In Step 1, run `lint` first (it mutates source) then `typecheck` + `test` + `build:all` concurrently. ② After the Step 5 push, start Step 8's Safari build + `xcodebuild archive` in parallel with the ~5-min CI wait — the archive depends on none of the GitHub release, only the final upload. See the ⚡ notes inline.
+**Two places to parallelize for wall-clock (the gates still hold; only the *work* overlaps):** ① In Step 1, run `lint` first (it mutates source) then `typecheck` + `test` + `build:all` concurrently. ② After the Step 5 push, the GitHub Actions job is mostly serial, but the agent's local work is not: monitor CI, run Step 8's Safari CLI archive/export/DMG flow, and draft Step 6's release body at the same time. The AMO signing/submission step often sits quiet for ~3-6 minutes; treat that as normal unless logs show an error. See the ⚡ notes inline.
 
 ```
 Release Progress:
@@ -22,7 +22,7 @@ Release Progress:
 - [ ] Step 4: Commit + tag locally
 - [ ] Step 5: Push (user confirmation required — external action)
 - [ ] Step 6: Curated GitHub release body (separate EN + ZH sections)
-- [ ] Step 7: Optional Edge compatibility zip (only if explicitly requested)
+- [ ] Step 7: Edge Add-ons publishing / retry
 - [ ] Step 8: Safari DMG sub-flow (Xcode-gated)
 - [ ] Step 9: Final check
 ```
@@ -85,7 +85,7 @@ Write `src/pages/content/changelog/notes/{VERSION}.md` — shown to end users in
 
 Two things that are easy to miss (full rules in the reference):
 - **Write Chinese (`zh`) first**, then render English from it, then the other 8 from English. `en` must still be complete (it's the viewer's fallback locale). Don't reorder the on-disk `<!-- lang:xx -->` sections — they stay en-first.
-- **Close every locale with a gift line: a real classic-anime quote (pre-2026), sourced via WebSearch this release** — gentle/warm/unpreachy, fresh vs. all prior releases. Format: `---` then `> *"{quote}" — {Character}, 《{Anime}》*`.
+- **Closing notes are optional, not required.** For hotfixes and security/privacy/permission releases, add one only when it directly fits the theme (responsibility, restraint, trust) and is instantly recognizable. If the line feels decorative, obscure, or like quote-hunting, skip it. Full rules live in `references/changelog.md`.
 
 ## Step 4 — Commit + tag
 
@@ -101,9 +101,9 @@ Commit message stays lowercase and imperative per the project's Conventional Com
 
 ## Step 5 — Push (external action — confirm first)
 
-Pushing the tag triggers `.github/workflows/release.yml`, which creates a public GitHub Release (Chrome zip + Firefox xpi), signs and submits Firefox to AMO, and — as its final step — auto-publishes the Chrome build to the Chrome Web Store via `chrome-webstore-upload-cli` (`--auto-publish`). All of this is visible to users. Confirm with the user before pushing:
+Pushing the tag triggers `.github/workflows/release.yml`, which creates a public GitHub Release (Chrome zip + Firefox xpi), signs and submits Firefox to AMO, auto-publishes the Chrome build to the Chrome Web Store via `chrome-webstore-upload-cli` (`--auto-publish`), and submits an Edge package to Microsoft Edge Add-ons via the Partner Center Publish API. All of this is visible to users. Confirm with the user before pushing:
 
-> About to push `v{VERSION}` to origin. This triggers the public release workflow: a GitHub Release (Chrome zip + Firefox xpi), Firefox submitted to AMO, and the Chrome build auto-published to the Chrome Web Store (submitted for Google review — not instantly live). OK to push?
+> About to push `v{VERSION}` to origin. This triggers the public release workflow: a GitHub Release (Chrome zip + Firefox xpi), Firefox submitted to AMO, Chrome auto-published to the Chrome Web Store, and Edge submitted to Microsoft Edge Add-ons (store submissions enter review — not instantly live). OK to push?
 
 Once confirmed:
 
@@ -117,9 +117,21 @@ Monitor the release workflow briefly:
 gh run list --workflow release.yml --limit 3
 ```
 
-If it fails, investigate — common causes: lint failing in CI (not locally because of cache), or missing/expired secrets for Firefox signing (`AMO_*`) or Chrome publishing (`CHROME_CLIENT_ID` / `CHROME_CLIENT_SECRET` / `CHROME_REFRESH_TOKEN` / `CHROME_EXTENSION_ID`). The Chrome Web Store step runs **last on purpose**, so if only it fails (expired refresh token, wrong extension id, store-review rejection), the GitHub Release and Firefox/AMO submission already went out — just re-publish Chrome (re-run the workflow job, or upload the Release's Chrome zip via `chrome-webstore-upload-cli`), don't re-cut the version. The `CHROME_REFRESH_TOKEN` can be regenerated locally with `bun run scripts/cws-refresh-token.ts <client_secret.json>`.
+Normal wait points:
+- `Build All`: usually about a minute.
+- `Sign Firefox Extension and Submit to AMO`: often ~3-6 minutes with little output while `web-ext sign` waits on Mozilla signing/submission. Do not assume this is hung until it clearly exceeds the normal window or logs an error.
+- `Publish to Chrome Web Store`: may fail after upload if Google rejects publication or cannot validate store-listing URLs. The GitHub Release and AMO submission are already complete by then.
+- `Build and publish to Edge Add-ons`: builds the Edge package, uploads it through Microsoft's Publish API, waits for upload success, then submits it for certification. If Partner Center already has an in-review submission, Microsoft may return `InProgressSubmission`; don't re-cut the release, wait for that review or retry Edge only later.
 
-> ⚡ **Don't idle during the ~5–6 min CI build.** The Safari archive (Step 8) depends on **none** of the GitHub release — only the final `gh release upload`. So the moment the tag is pushed: start Step 8's `ENABLE_SAFARI_UPDATE_CHECK=true bun run build:safari` + `xcodebuild archive` **in the background**, and curate the release body (Step 6) while both CI and the archive run. Converge at the end — upload the Safari DMG once CI has created the release. This collapses the two ~5-min waits (CI + archive) into one. (Skip this overlap only if Xcode isn't available or the user deferred Safari.)
+If it fails, investigate — common causes: lint failing in CI (not locally because of cache), missing/expired secrets for Firefox signing (`AMO_*`), Chrome publishing (`CHROME_CLIENT_ID` / `CHROME_CLIENT_SECRET` / `CHROME_REFRESH_TOKEN` / `CHROME_EXTENSION_ID`), or Edge publishing (`EDGE_CLIENT_ID` / `EDGE_API_KEY` / `EDGE_PRODUCT_ID`). Store-side publication checks can also time out. If only a store publish step fails after GitHub Release and Firefox/AMO already went out, don't re-cut the version:
+- Re-publish Chrome with the workflow's manual `publish_only` input and `version={VERSION}`, or upload the Release's Chrome zip via `chrome-webstore-upload-cli`.
+- Re-publish Edge with the workflow's manual `publish_edge_only` input and `version={VERSION}`.
+
+Credential notes:
+- The `CHROME_REFRESH_TOKEN` can be regenerated locally with `bun run scripts/cws-refresh-token.ts <client_secret.json>`.
+- Microsoft Edge Publish API v1.1 uses `EDGE_CLIENT_ID`, `EDGE_PRODUCT_ID`, and `EDGE_API_KEY`. The API key currently expires after 72 days; rotate it in Partner Center > Edge > Publish API > New API key, then run `gh secret set EDGE_API_KEY -R Nagi-ovo/gemini-voyager`.
+
+> ⚡ **Don't idle during the ~5–6 min CI build.** The remote workflow itself is serial, but local release work can overlap it. The moment the tag is pushed: monitor CI, start Step 8's `ENABLE_SAFARI_UPDATE_CHECK=true bun run build:safari`, then run the `xcodebuild archive` / `xcodebuild -exportArchive` / DMG packaging flow while CI runs. Use the `Any Mac` CLI destination (`generic/platform=macOS`) so the app is universal instead of tied to the current Mac. Apply the release body only after the GitHub Release exists, and upload the Safari DMG only after CI has created the release. This overlaps the CI wait, AMO wait, release-body drafting, and Safari archive/export into one wall-clock window. (Skip this overlap only if Xcode/signing isn't available or the user deferred Safari.)
 
 ## Step 6 — Curated GitHub release body (required every release)
 
@@ -142,11 +154,21 @@ This is a judgment step — filtering commits, writing short descriptions in eac
 
 If the workflow's `## 📥 Installation` marker is missing (e.g., workflow failed partway), don't blindly strip — check what's there first, then paste the Installation block from the workflow YAML manually.
 
-## Step 7 — Optional Edge compatibility zip
+## Step 7 — Edge Add-ons publishing
 
 Voyager maintains the Edge Add-ons build for users who need Edge on mobile or tablet, so the Installation block includes a Microsoft Edge Add-ons button. The Chrome Web Store build also works in Edge if a store review is delayed.
 
-Skip this step during normal releases. Only run it when the user explicitly asks for an Edge compatibility zip or says they still want to submit a build to the Edge Add-ons partner dashboard.
+Normal releases do this automatically in `.github/workflows/release.yml` after the GitHub Release, AMO, and Chrome Web Store steps. The workflow:
+1. Runs `bun run build:edge`
+2. Strips the manifest `key` field through `scripts/build-edge.js`
+3. Creates `voyager-edge-v{VERSION}.zip`
+4. Runs `scripts/publish-edge.js`, which uploads the zip to Microsoft Edge Add-ons, polls upload status, triggers publish, and polls publish status
+
+Use the manual path only when the automatic Edge step failed or the user explicitly asks for an Edge compatibility zip.
+
+To retry Edge without re-cutting the release, run the GitHub workflow manually with:
+- `version={VERSION}`
+- `publish_edge_only=true`
 
 If needed, build locally:
 
@@ -159,7 +181,7 @@ bun run build:edge
 2. Strips `key` from `dist_chrome/manifest.json`
 3. Zips the contents of `dist_chrome/` as `voyager-edge-v{VERSION}.zip` in the repo root
 
-**Do NOT upload this zip to the GitHub release.** It exists only as an optional compatibility artifact for manual Edge Add-ons submission. `.gitignore` covers `voyager-edge-v*.zip` so it stays untracked.
+**Do NOT upload this zip to the GitHub release.** It exists only as an Edge Add-ons submission artifact. `.gitignore` covers `voyager-edge-v*.zip` so it stays untracked.
 
 Side-effect: `dist_chrome/` is now the Edge variant (no `key`), not the Chrome Web Store build. If you plan to dev-load Chrome locally afterwards, re-run `bun run build:chrome` to restore.
 
@@ -176,7 +198,7 @@ open https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview
 
 Safari gets its own asset (a signed DMG) because Safari extensions ship as native apps, not webstore uploads. This step requires **full Xcode.app** — `xcrun safari-web-extension-converter` and `xcodebuild archive` both fail with only Command Line Tools.
 
-> ⚡ **Start this right after the Step 5 push** — don't wait for Step 6. The Safari build + archive overlaps the CI build (see the ⚡ note in Step 5). Run `xcodebuild archive` in the background so you can curate the release body meanwhile; only the final `gh release upload` needs the release to exist.
+> ⚡ **Start this right after the Step 5 push** — don't wait for Step 6. The Safari bundle build, `xcodebuild archive`, `xcodebuild -exportArchive`, and DMG packaging can all run from CLI and overlap the CI build (see the ⚡ note in Step 5). Only the final `gh release upload` needs the release to exist.
 
 **First check whether Xcode is available:**
 
