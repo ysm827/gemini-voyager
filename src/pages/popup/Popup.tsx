@@ -19,6 +19,7 @@ import {
   supportsExtensionNotifications,
   supportsOptionalHostPermissions,
 } from '@/core/utils/browser';
+import { normalizeCustomWebsite, sanitizeCustomWebsites } from '@/core/utils/customWebsites';
 import {
   ensureNotificationsPermission,
   hasNotificationsPermission,
@@ -697,7 +698,6 @@ interface SettingsUpdate {
   inputCollapseEnabled?: boolean;
   inputCollapseWhenNotEmpty?: boolean;
   inputVimModeEnabled?: boolean;
-  tabTitleUpdateEnabled?: boolean;
   mermaidEnabled?: boolean;
   quoteReplyEnabled?: boolean;
   responseCompleteNotificationEnabled?: boolean;
@@ -834,7 +834,6 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
   const [inputCollapseEnabled, setInputCollapseEnabled] = useState<boolean>(false);
   const [inputCollapseWhenNotEmpty, setInputCollapseWhenNotEmpty] = useState<boolean>(false);
   const [inputVimModeEnabled, setInputVimModeEnabled] = useState<boolean>(false);
-  const [tabTitleUpdateEnabled, setTabTitleUpdateEnabled] = useState<boolean>(true);
   const [mermaidEnabled, setMermaidEnabled] = useState<boolean>(true);
   const [showMessageTimestamps, setShowMessageTimestamps] = useState<boolean>(false);
   const [quoteReplyEnabled, setQuoteReplyEnabled] = useState<boolean>(true);
@@ -1093,8 +1092,6 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
         payload.gvInputCollapseWhenNotEmpty = settings.inputCollapseWhenNotEmpty;
       if (typeof settings.inputVimModeEnabled === 'boolean')
         payload[StorageKeys.INPUT_VIM_MODE] = settings.inputVimModeEnabled;
-      if (typeof settings.tabTitleUpdateEnabled === 'boolean')
-        payload.gvTabTitleUpdateEnabled = settings.tabTitleUpdateEnabled;
       if (typeof settings.mermaidEnabled === 'boolean')
         payload.gvMermaidEnabled = settings.mermaidEnabled;
       if (typeof settings.quoteReplyEnabled === 'boolean')
@@ -1510,7 +1507,7 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
           gvInputCollapseEnabled: false,
           gvInputCollapseWhenNotEmpty: false,
           [StorageKeys.INPUT_VIM_MODE]: false,
-          gvTabTitleUpdateEnabled: true,
+          [StorageKeys.TAB_TITLE_UPDATE_ENABLED]: false,
           gvMermaidEnabled: true,
           gvQuoteReplyEnabled: true,
           [StorageKeys.USAGE_STATUS_ENABLED]: false,
@@ -1571,10 +1568,17 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
           setFloatingOpenOnStart(res?.[StorageKeys.FOLDER_FLOATING_OPEN_ON_START] !== false);
           setHideArchivedConversations(!!res?.geminiFolderHideArchivedConversations);
           setFolderSearchEnabled(res?.[StorageKeys.FOLDER_SEARCH_ENABLED] !== false);
-          const loadedCustomWebsites = Array.isArray(res?.gvPromptCustomWebsites)
-            ? res.gvPromptCustomWebsites.filter((w: unknown) => typeof w === 'string')
+          const rawCustomWebsites = Array.isArray(res?.gvPromptCustomWebsites)
+            ? res.gvPromptCustomWebsites
             : [];
+          const loadedCustomWebsites = sanitizeCustomWebsites(rawCustomWebsites);
           setCustomWebsites(loadedCustomWebsites);
+          if (
+            rawCustomWebsites.length !== loadedCustomWebsites.length ||
+            rawCustomWebsites.some((website, index) => website !== loadedCustomWebsites[index])
+          ) {
+            void setSyncStorage({ gvPromptCustomWebsites: loadedCustomWebsites });
+          }
           {
             const watermarkSettings = resolveWatermarkSettings(res);
             setWatermarkDownloadEnabled(watermarkSettings.download);
@@ -1585,7 +1589,9 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
           setInputCollapseEnabled(res?.gvInputCollapseEnabled !== false);
           setInputCollapseWhenNotEmpty(res?.gvInputCollapseWhenNotEmpty === true);
           setInputVimModeEnabled(res?.[StorageKeys.INPUT_VIM_MODE] === true);
-          setTabTitleUpdateEnabled(res?.gvTabTitleUpdateEnabled !== false);
+          if (res?.[StorageKeys.TAB_TITLE_UPDATE_ENABLED] !== false) {
+            void setSyncStorage({ [StorageKeys.TAB_TITLE_UPDATE_ENABLED]: false });
+          }
           setMermaidEnabled(res?.gvMermaidEnabled !== false);
           setQuoteReplyEnabled(res?.gvQuoteReplyEnabled !== false);
           setResponseCompleteNotificationEnabled(
@@ -1716,38 +1722,12 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
 
   // Validate and normalize URL
   const normalizeUrl = useCallback((url: string): string | null => {
-    try {
-      let normalized = url.trim().toLowerCase();
-
-      // Remove protocol if present
-      normalized = normalized.replace(/^https?:\/\//, '');
-
-      // Remove trailing slash
-      normalized = normalized.replace(/\/$/, '');
-
-      // Remove www. prefix
-      normalized = normalized.replace(/^www\./, '');
-
-      // Basic validation: must contain at least one dot and valid characters
-      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) {
-        return null;
-      }
-
-      return normalized;
-    } catch {
-      return null;
-    }
+    return normalizeCustomWebsite(url);
   }, []);
 
   const originPatternsForDomain = useCallback((domain: string): string[] | null => {
     try {
-      const normalized = domain
-        .trim()
-        .toLowerCase()
-        .replace(/^https?:\/\//, '')
-        .replace(/^www\./, '')
-        .replace(/\/.*$/, '')
-        .replace(/^\*\./, '');
+      const normalized = normalizeCustomWebsite(domain);
       if (!normalized) return null;
       return [`https://*.${normalized}/*`, `http://*.${normalized}/*`];
     } catch {
@@ -3532,11 +3512,11 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
               {renderSetting(
                 'general',
                 'enableTabTitleUpdate',
-                <div className="group flex items-center justify-between">
+                <div className="flex items-center justify-between opacity-60">
                   <div className="flex-1">
                     <Label
                       htmlFor="tab-title-update"
-                      className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                      className="text-muted-foreground cursor-not-allowed text-sm font-medium"
                     >
                       {t('enableTabTitleUpdate')}
                     </Label>
@@ -3544,14 +3524,7 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
                       {t('enableTabTitleUpdateHint')}
                     </p>
                   </div>
-                  <Switch
-                    id="tab-title-update"
-                    checked={tabTitleUpdateEnabled}
-                    onChange={(e) => {
-                      setTabTitleUpdateEnabled(e.target.checked);
-                      apply({ tabTitleUpdateEnabled: e.target.checked });
-                    }}
-                  />
+                  <Switch id="tab-title-update" checked={false} disabled className="opacity-70" />
                 </div>,
               )}
               {renderSetting(

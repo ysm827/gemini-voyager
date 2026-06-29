@@ -1,5 +1,6 @@
 import { StorageKeys } from '@/core/types/common';
 import { isSafari } from '@/core/utils/browser';
+import { customWebsitesIncludeHost, sanitizeCustomWebsites } from '@/core/utils/customWebsites';
 import {
   hasValidExtensionContext,
   isExtensionContextInvalidatedError,
@@ -8,6 +9,7 @@ import { isGeminiEnterpriseEnvironment } from '@/core/utils/gemini';
 import { startFormulaCopy, stopFormulaCopy } from '@/features/formulaCopy';
 import { startPluginHost } from '@/features/plugins';
 import { startClaudeTimeline, stopClaudeTimeline } from '@/features/plugins/builtin/claudeTimeline';
+import { startClaudeUsage, stopClaudeUsage } from '@/features/plugins/builtin/claudeUsage';
 import { registerNativeHandler } from '@/features/plugins/runtime/nativeHandlers';
 import { resolvePluginPlatformId } from '@/features/plugins/sites/registry';
 import { initI18n } from '@/utils/i18n';
@@ -52,7 +54,6 @@ import { startSendBehavior } from './sendBehavior/index';
 import { startSidebarAutoHide } from './sidebarAutoHide';
 import { startSidebarWidthAdjuster } from './sidebarWidth';
 import { startTimeline } from './timeline/index';
-import { startTitleUpdater } from './titleUpdater';
 import { startUsageStatus } from './usageStatus/index';
 import { maybeShowUsageCoachmark } from './usageStatus/usageCoachmark';
 import { startUserLatex } from './userLatex/index';
@@ -101,7 +102,6 @@ let responseCompleteNotificationCleanup: (() => void) | null = null;
 let edgeFinalVersionNoticeCleanup: (() => void) | null = null;
 let pluginHostCleanup: (() => void) | null = null;
 let brandThemeCleanup: (() => void) | null = null;
-let titleUpdaterCleanup: (() => void) | null = null;
 let usageStatusCleanup: (() => void) | null = null;
 let remoteAnnouncementsCleanup: (() => void) | null = null;
 
@@ -125,9 +125,7 @@ function showOnboardingCoachmarksWhenChangelogIsIdle(): void {
 async function isCustomWebsite(): Promise<boolean> {
   try {
     const result = await chrome.storage?.sync?.get({ gvPromptCustomWebsites: [] });
-    const customWebsites = Array.isArray(result?.gvPromptCustomWebsites)
-      ? result.gvPromptCustomWebsites
-      : [];
+    const customWebsites = sanitizeCustomWebsites(result?.gvPromptCustomWebsites);
 
     // Normalize current hostname
     const currentHost = location.hostname.toLowerCase().replace(/^www\./, '');
@@ -138,13 +136,7 @@ async function isCustomWebsite(): Promise<boolean> {
       hostname: location.hostname,
     });
 
-    const isCustom = customWebsites.some((website: string) => {
-      const normalizedWebsite = website.toLowerCase().replace(/^www\./, '');
-      const matches =
-        currentHost === normalizedWebsite || currentHost.endsWith('.' + normalizedWebsite);
-      console.log('[Gemini Voyager] Comparing:', { currentHost, normalizedWebsite, matches });
-      return matches;
-    });
+    const isCustom = customWebsitesIncludeHost(customWebsites, currentHost);
 
     console.log('[Gemini Voyager] Is custom website:', isCustom);
     return isCustom;
@@ -292,9 +284,6 @@ async function initializeFeatures(): Promise<void> {
       if (!isSafari()) {
         startWatermarkRemover();
       }
-      await delay(LIGHT_FEATURE_INIT_DELAY);
-
-      titleUpdaterCleanup = await startTitleUpdater();
       await delay(LIGHT_FEATURE_INIT_DELAY);
 
       startDeepResearchExport();
@@ -475,6 +464,10 @@ function handleVisibilityChange(): void {
       start: startClaudeTimeline,
       stop: stopClaudeTimeline,
     });
+    registerNativeHandler('voyager.claude-usage', {
+      start: startClaudeUsage,
+      stop: stopClaudeUsage,
+    });
 
     pluginHostCleanup = startPluginHost();
 
@@ -571,15 +564,7 @@ function handleVisibilityChange(): void {
 
       // For unknown sites, check storage asynchronously
       chrome.storage?.sync?.get({ gvPromptCustomWebsites: [] }, (result) => {
-        const customWebsites = Array.isArray(result?.gvPromptCustomWebsites)
-          ? result.gvPromptCustomWebsites
-          : [];
-        const currentHost = hostname.replace(/^www\./, '');
-
-        const isCustomSite = customWebsites.some((website: string) => {
-          const normalizedWebsite = website.toLowerCase().replace(/^www\./, '');
-          return currentHost === normalizedWebsite || currentHost.endsWith('.' + normalizedWebsite);
-        });
+        const isCustomSite = customWebsitesIncludeHost(result?.gvPromptCustomWebsites, hostname);
 
         if (isCustomSite) {
           console.log('[Gemini Voyager] Custom website detected:', hostname);
@@ -667,10 +652,6 @@ function handleVisibilityChange(): void {
         if (remoteAnnouncementsCleanup) {
           remoteAnnouncementsCleanup();
           remoteAnnouncementsCleanup = null;
-        }
-        if (titleUpdaterCleanup) {
-          titleUpdaterCleanup();
-          titleUpdaterCleanup = null;
         }
         if (usageStatusCleanup) {
           usageStatusCleanup();
