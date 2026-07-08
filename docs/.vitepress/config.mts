@@ -843,6 +843,55 @@ export default defineConfig({
         // translated copies share the same git history via the source.
         include: ['docs/guide/**/*.md'],
         maxGitLogCount: 200,
+        // Collapse split identities into one contributor each, and give the
+        // ones whose commit email is not a GitHub account a real avatar.
+        mapAuthors: [
+          {
+            // The maintainer commits under two names and several emails
+            // (incl. a typo'd trailing-dot noreply and a personal gmail).
+            name: 'Nagi-ovo',
+            username: 'Nagi-ovo',
+            mapByNameAliases: ['Jesse Zhang'],
+            mapByEmailAliases: [
+              '101612750+Nagi-ovo@users.noreply.github.com',
+              '101612750+Nagi-ovo@users.noreply.github.com.',
+              'j3ssezhang102@gmail.com',
+            ],
+          },
+          {
+            // Every Claude model co-authors under noreply@anthropic.com but with
+            // a different display name (Sonnet 5, Opus 4.6/4.7/4.8, Fable 5, …).
+            // Merge them all by email; the avatar is the official claude[bot]
+            // GitHub App (github.com/apps/claude) so it matches Claude's real
+            // GitHub identity instead of a gravatar placeholder.
+            name: 'Claude',
+            avatar: 'https://avatars.githubusercontent.com/in/1236702?v=4',
+            links: 'https://github.com/apps/claude',
+            mapByEmailAliases: ['noreply@anthropic.com'],
+          },
+          {
+            // OpenAI's Codex / GPT-5.5 co-authors under a few names; avatar is
+            // the official chatgpt-codex-connector[bot] GitHub App.
+            name: 'Codex',
+            avatar: 'https://avatars.githubusercontent.com/in/1144995?v=4',
+            links: 'https://github.com/apps/chatgpt-codex-connector',
+            mapByEmailAliases: ['codex@openai.com', 'codex@users.noreply.github.com'],
+          },
+          {
+            // Commits as "Windfall"; the GitHub account is "Winddfall" (two d's).
+            name: 'Windfall',
+            username: 'Winddfall',
+            mapByEmailAliases: ['23373517@buaa.edu.cn', '794556487@qq.com'],
+          },
+          {
+            name: 'ZidongChen25',
+            username: 'ZidongChen25',
+            mapByEmailAliases: [
+              '164652964+ZidongChen25@users.noreply.github.com',
+              'zchen223@sheffield.ac.uk',
+            ],
+          },
+        ],
       }),
       GitChangelogMarkdownSection(),
     ],

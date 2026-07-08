@@ -1,3 +1,4 @@
+import { CLOUD_SYNC_PATH, CLOUD_UPLOAD_PATH } from '@/core/icons/cloudSyncPaths';
 import { isSafari } from '@/core/utils/browser';
 import { getTranslationSyncUnsafe } from '@/utils/i18n';
 
@@ -53,10 +54,6 @@ const MAX_FOLDER_NAME_LENGTH = 50;
 // (depth 1). Deeper pre-existing data keeps rendering; only *new* creation
 // beyond this is blocked. Mirrors MAX_FOLDER_DEPTH in manager.ts.
 const MAX_FOLDER_DEPTH = 1;
-const CLOUD_UPLOAD_PATH =
-  'M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H520q-33 0-56.5-23.5T440-240v-206l-64 62-56-56 160-160 160 160-56 56-64-62v206h220q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h100v80H260Zm220-280Z';
-const CLOUD_SYNC_PATH =
-  'M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q17-72 85-137t145-65q33 0 56.5 23.5T520-716v242l64-62 56 56-160 160-160-160 56-56 64 62v-242q-76 14-118 73.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h480q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-48-22-89.5T600-680v-93q74 35 117 103.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H260Zm220-358Z';
 
 type InlineEditorState =
   | { mode: 'create'; parentId: string | null }
@@ -934,15 +931,24 @@ export function mountFloatingPanel({
   panel.style.width = `${initialSize.w}px`;
   panel.style.height = `${initialSize.h}px`;
 
-  // Drag support — header is the grabbable handle.
-  let dragState: { offsetX: number; offsetY: number } | null = null;
+  // Drag support — header is the grabbable handle. Panel dimensions are read
+  // once at drag start and reused on every move: interleaving offsetWidth/
+  // offsetHeight reads with style writes inside pointermove forces a layout
+  // pass per event (the panel doesn't resize mid-drag anyway).
+  let dragState: { offsetX: number; offsetY: number; width: number; height: number } | null = null;
 
   const onPointerDown = (e: PointerEvent) => {
+    if (e.button !== 0) return; // primary button only — no right/middle drags
     const target = e.target as HTMLElement;
     if (target.closest(`.${FLOATING_PANEL_CLASS}__close`)) return;
     if (target.closest(`.${FLOATING_PANEL_CLASS}__icon-button`)) return;
     const rect = panel.getBoundingClientRect();
-    dragState = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+    dragState = {
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      width: rect.width || panel.offsetWidth,
+      height: rect.height || panel.offsetHeight,
+    };
     header.setPointerCapture(e.pointerId);
     header.classList.add(`${FLOATING_PANEL_CLASS}__header--dragging`);
   };
@@ -950,8 +956,8 @@ export function mountFloatingPanel({
     if (!dragState) return;
     const next = clampPos(
       { x: e.clientX - dragState.offsetX, y: e.clientY - dragState.offsetY },
-      panel.offsetWidth,
-      panel.offsetHeight,
+      dragState.width,
+      dragState.height,
     );
     panel.style.left = `${next.x}px`;
     panel.style.top = `${next.y}px`;
@@ -1100,6 +1106,16 @@ export function mountFloatingPanel({
 
   document.body.appendChild(panel);
 
+  // Is the user currently typing into an inline create/rename input?
+  const isInlineFormInputFocused = () => {
+    const active = document.activeElement;
+    return (
+      active instanceof HTMLElement &&
+      panel.contains(active) &&
+      active.classList.contains(`${FLOATING_PANEL_CLASS}__inline-input`)
+    );
+  };
+
   return {
     element: panel,
     update: (next) => {
@@ -1117,6 +1133,14 @@ export function mountFloatingPanel({
       if (contextMenu && !next.folders.some((folder) => folder.id === contextMenu?.folderId)) {
         contextMenu = null;
       }
+      // A background update (storage sync, another tab) must not rebuild the
+      // tree while the user is typing in an inline form — the rebuild would
+      // recreate the form empty, losing their input. `currentData` is already
+      // updated above, and every form close path (submit / cancel / outside
+      // mousedown) calls render(), which then picks up the deferred data.
+      // If the edited folder was deleted remotely, inlineEditor is nulled
+      // above and we fall through to render immediately.
+      if (inlineEditor && isInlineFormInputFocused()) return;
       render();
     },
     destroy,

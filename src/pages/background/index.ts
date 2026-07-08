@@ -20,6 +20,8 @@ import {
   isRemoteAnnouncementRuntimeMessage,
   startRemoteAnnouncementBackgroundService,
 } from '@/features/announcements/background';
+import { PromptImportExportService } from '@/features/backup/services/PromptImportExportService';
+import { computeNudgeDomains, normalizeIconResourcePath } from '@/features/plugins/promptNudge';
 import { pluginsToOriginPatterns } from '@/features/plugins/runtime/siteRegistration';
 import { listPluginManifests } from '@/features/plugins/sources/defaultSources';
 import type { PluginManifest } from '@/features/plugins/types';
@@ -628,6 +630,22 @@ async function getEnabledPluginOrigins(): Promise<string[]> {
   return pluginsToOriginPatterns(enabledPlugins);
 }
 
+/**
+ * A live Voyager content script answers this ping. Orphaned scripts (extension
+ * updated/reloaded underneath the page) have an invalidated runtime and cannot
+ * respond, so they correctly read as "not injected".
+ */
+async function hasLiveVoyagerContentScript(tabId: number): Promise<boolean> {
+  try {
+    const response = (await browser.tabs.sendMessage(tabId, { type: 'gv.content.ping' })) as
+      | { ok?: boolean }
+      | undefined;
+    return response?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 async function injectPluginScriptIntoOpenTabs(
   matches: string[],
   jsResources: string[],
@@ -643,6 +661,10 @@ async function injectPluginScriptIntoOpenTabs(
   for (const tab of tabs) {
     if (typeof tab.id !== 'number') continue;
     try {
+      // insertCSS APPENDS a fresh copy on every call — without this guard each
+      // plugin toggle / settings write stacks another full stylesheet into
+      // every open matching tab.
+      if (await hasLiveVoyagerContentScript(tab.id)) continue;
       if (cssResources?.length) {
         await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: cssResources });
       }
@@ -655,7 +677,17 @@ async function injectPluginScriptIntoOpenTabs(
   }
 }
 
-async function syncPluginContentScripts(): Promise<void> {
+// Serialized: concurrent syncs (storage listener + permission events) would
+// otherwise race the ping-then-inject sequence and double-inject.
+let pluginContentScriptSyncQueue: Promise<void> = Promise.resolve();
+
+function syncPluginContentScripts(): Promise<void> {
+  const next = pluginContentScriptSyncQueue.then(() => doSyncPluginContentScripts());
+  pluginContentScriptSyncQueue = next.catch(() => {});
+  return next;
+}
+
+async function doSyncPluginContentScripts(): Promise<void> {
   if (!chrome.scripting?.registerContentScripts) return;
 
   const manifestContentScript = chrome.runtime.getManifest().content_scripts?.[0];
@@ -706,12 +738,149 @@ async function syncPluginContentScripts(): Promise<void> {
   }
 }
 
+// --- Prompt Manager discovery nudge (Chrome/Edge only) ----------------------
+// On plugin-capable third-party sites (ChatGPT / Claude) Voyager has no host
+// access until the user turns the Prompt Manager on, so it stays at "No access
+// needed" and cannot run any code on the page. To still hint that Voyager
+// supports the site, paint a small dot on the toolbar icon while the user is on
+// such a site and has not enabled it yet. declarativeContent matches the URL
+// inside Chrome (no host permission, preserves "No access needed") and only
+// exposes SetIcon (no badge action), so the dot is baked into the icon via
+// OffscreenCanvas. chrome.declarativeContent is absent on Firefox/Safari, where
+// this whole feature safely no-ops.
+const NUDGE_ICON_SIZES = [16, 32] as const;
+const NUDGE_DOT_COLOR = '#e5484d';
+let cachedNudgeIcon: { [size: string]: ImageData } | null = null;
+
+function collectBaseIconCandidates(): string[] {
+  const manifest = chrome.runtime.getManifest() as {
+    action?: { default_icon?: string | { [key: string]: string } };
+    icons?: { [key: string]: string };
+  };
+  const candidates = new Set<string>();
+  const actionIcon = manifest.action?.default_icon;
+  if (typeof actionIcon === 'string') {
+    candidates.add(normalizeIconResourcePath(actionIcon));
+  } else if (actionIcon) {
+    for (const value of Object.values(actionIcon)) {
+      candidates.add(normalizeIconResourcePath(value));
+    }
+  }
+  if (manifest.icons) {
+    for (const value of Object.values(manifest.icons)) {
+      candidates.add(normalizeIconResourcePath(value));
+    }
+  }
+  return Array.from(candidates);
+}
+
+async function loadBaseIconBitmap(): Promise<ImageBitmap | null> {
+  for (const candidate of collectBaseIconCandidates()) {
+    try {
+      const response = await fetch(chrome.runtime.getURL(candidate));
+      if (!response.ok) continue;
+      return await createImageBitmap(await response.blob());
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return null;
+}
+
+async function buildNudgeIcon(): Promise<{ [size: string]: ImageData } | null> {
+  if (cachedNudgeIcon) return cachedNudgeIcon;
+  if (typeof OffscreenCanvas === 'undefined') return null;
+  const bitmap = await loadBaseIconBitmap();
+  if (!bitmap) return null;
+
+  const icon: { [size: string]: ImageData } = {};
+  for (const size of NUDGE_ICON_SIZES) {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(bitmap, 0, 0, size, size);
+
+    const radius = size * 0.24;
+    const cx = size - radius - size * 0.04;
+    const cy = radius + size * 0.04;
+    // White ring keeps the dot legible on any icon background.
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + Math.max(1, size * 0.06), 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = NUDGE_DOT_COLOR;
+    ctx.fill();
+
+    icon[String(size)] = ctx.getImageData(0, 0, size, size);
+  }
+  bitmap.close();
+  cachedNudgeIcon = icon;
+  return icon;
+}
+
+async function getEnabledCustomWebsites(): Promise<Set<string>> {
+  try {
+    const stored = await browser.storage.sync.get({ [CUSTOM_WEBSITE_KEY]: [] });
+    const value = stored[CUSTOM_WEBSITE_KEY];
+    if (!Array.isArray(value)) return new Set();
+    return new Set(value.map((domain) => String(domain).toLowerCase()));
+  } catch {
+    return new Set();
+  }
+}
+
+async function syncPromptNudgeIcon(): Promise<void> {
+  if (!chrome.declarativeContent?.onPageChanged) return;
+
+  const removeAll = () =>
+    new Promise<void>((resolve) => {
+      chrome.declarativeContent.onPageChanged.removeRules(undefined, () => resolve());
+    });
+
+  try {
+    const enabled = await getEnabledCustomWebsites();
+    const nudgeDomains = computeNudgeDomains(pluginSiteDomains, enabled);
+
+    await removeAll();
+    if (nudgeDomains.length === 0) return;
+
+    const icon = await buildNudgeIcon();
+    if (!icon) return;
+
+    const conditions = nudgeDomains.flatMap((domain) => [
+      new chrome.declarativeContent.PageStateMatcher({
+        pageUrl: { hostEquals: domain, schemes: ['https'] },
+      }),
+      new chrome.declarativeContent.PageStateMatcher({
+        pageUrl: { hostSuffix: `.${domain}`, schemes: ['https'] },
+      }),
+    ]);
+
+    chrome.declarativeContent.onPageChanged.addRules([
+      {
+        conditions,
+        actions: [new chrome.declarativeContent.SetIcon({ imageData: icon })],
+      },
+    ]);
+  } catch (error) {
+    console.warn('[Background] Failed to sync Prompt Manager nudge icon:', error);
+  }
+}
+
 // Initial sync for persisted permissions
 void disableRetiredTabTitleUpdateSetting();
 void cleanupLegacyGeneratedUiCapturePermission();
 void syncCustomContentScripts();
 void syncPluginContentScripts();
-void refreshPluginSiteDomains();
+void refreshPluginSiteDomains().then(() => {
+  void syncPromptNudgeIcon();
+});
 
 // Initial fetch interceptor registration
 void registerFetchInterceptor();
@@ -733,6 +902,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const newValue = changes[CUSTOM_WEBSITE_KEY]?.newValue;
     const domains = Array.isArray(newValue) ? newValue : [];
     void syncCustomContentScripts(domains);
+    // Enabling/disabling a site flips whether it should still show the nudge dot.
+    void syncPromptNudgeIcon();
   }
 
   // Re-register fetch interceptor when any watermark-related key changes.
@@ -790,6 +961,8 @@ chrome.permissions.onAdded.addListener(({ origins }) => {
     // custom-website and the plugin content scripts for newly-granted origins.
     await syncCustomContentScripts();
     await syncPluginContentScripts();
+    // The freshly-granted site is now enabled, so it should no longer be nudged.
+    await syncPromptNudgeIcon();
   })();
 });
 
@@ -799,6 +972,8 @@ chrome.permissions.onRemoved.addListener(() => {
   // permission is revoked from the browser UI — filterGrantedOrigins will now
   // drop the revoked origin, so the stale plugin registration is removed.
   void syncPluginContentScripts();
+  // A revoked plugin site becomes eligible for the nudge dot again.
+  void syncPromptNudgeIcon();
 });
 
 /**
@@ -1415,6 +1590,76 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({
               ok: true,
               data,
+              state: await googleDriveSyncService.getState(),
+            });
+            return;
+          }
+          // Prompts-only cloud merge, run END-TO-END in the background so the
+          // operation survives the extension popup closing when the Google
+          // account picker steals focus during interactive auth. Merging in the
+          // popup meant a first-time account selection abandoned the merge and
+          // the user had to click again.
+          case 'gv.sync.pullPromptsMerge': {
+            const { interactive, accountScope: rawScope } = (message.payload ?? {}) as {
+              interactive?: boolean;
+              accountScope?: unknown;
+            };
+            const accountScope = await resolveAccountScopeForMessage(
+              sender,
+              'gemini',
+              isSyncAccountScope(rawScope) ? rawScope : undefined,
+            );
+            const payload = await googleDriveSyncService.downloadPromptsOnly(
+              accountScope,
+              interactive !== false,
+            );
+            const validated = PromptImportExportService.validatePayload(payload);
+            if (!validated.success) {
+              sendResponse({
+                ok: true,
+                empty: true,
+                state: await googleDriveSyncService.getState(),
+              });
+              return;
+            }
+            const merged = await PromptImportExportService.importFromPayload(validated.data);
+            sendResponse({
+              ok: merged.success,
+              imported: merged.success ? merged.data.imported : 0,
+              duplicates: merged.success ? merged.data.duplicates : 0,
+              state: await googleDriveSyncService.getState(),
+            });
+            return;
+          }
+          case 'gv.sync.pushPromptsMerge': {
+            const { interactive, accountScope: rawScope } = (message.payload ?? {}) as {
+              interactive?: boolean;
+              accountScope?: unknown;
+            };
+            const accountScope = await resolveAccountScopeForMessage(
+              sender,
+              'gemini',
+              isSyncAccountScope(rawScope) ? rawScope : undefined,
+            );
+            // Merge cloud into local first so both sides converge to the union.
+            const cloudPayload = await googleDriveSyncService.downloadPromptsOnly(
+              accountScope,
+              interactive !== false,
+            );
+            const validated = PromptImportExportService.validatePayload(cloudPayload);
+            if (validated.success) {
+              await PromptImportExportService.importFromPayload(validated.data);
+            }
+            const localResult = await PromptImportExportService.loadPrompts();
+            const localPrompts = localResult.success ? localResult.data : [];
+            const uploaded = await googleDriveSyncService.uploadPromptsOnly(
+              localPrompts,
+              accountScope,
+              interactive !== false,
+            );
+            sendResponse({
+              ok: uploaded,
+              count: localPrompts.length,
               state: await googleDriveSyncService.getState(),
             });
             return;

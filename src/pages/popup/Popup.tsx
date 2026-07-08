@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Search, Upload, X } from 'lucide-react';
 import browser from 'webextension-polyfill';
 
+import { CLOUD_SYNC_PATH, CLOUD_UPLOAD_PATH } from '@/core/icons/cloudSyncPaths';
 import {
   type AccountPlatform,
   detectAccountPlatformFromUrl,
@@ -65,6 +66,8 @@ import { PluginManager } from './components/PluginManager';
 import { StarredHistory } from './components/StarredHistory';
 import { ThemeColorButton } from './components/ThemeColorButton';
 import {
+  IconChatGPT,
+  IconClaude,
   IconDeepSeek,
   IconKimi,
   IconMidjourney,
@@ -73,6 +76,19 @@ import {
 } from './components/WebsiteLogos';
 import WidthSlider from './components/WidthSlider';
 import { type SettingsSearchItem, getSettingsSearchMatches } from './utils/settingsSearch';
+
+/**
+ * Inline Material Symbols glyph, so the prompt cloud-sync buttons match the
+ * injected Gemini folder panel exactly (which also inlines these SVG paths)
+ * rather than the thin lucide outline used elsewhere in the popup.
+ */
+function MaterialGlyphIcon({ path, className }: { path: string; className?: string }) {
+  return (
+    <svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" className={className}>
+      <path d={path} />
+    </svg>
+  );
+}
 
 type ScrollMode = 'jump' | 'flow';
 
@@ -947,6 +963,16 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
     return activeSiteId ? (labels[activeSiteId] ?? activeSiteId) : '';
   }, [activeSiteId]);
 
+  // The registrable host of the active tab, used by the top-of-popup
+  // "enable Prompt Manager here" toggle on third-party plugin sites.
+  const activeSiteDomain = useMemo(() => {
+    try {
+      return new URL(activeUrl).hostname.replace(/^www\./, '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }, [activeUrl]);
+
   // Load the per-site accent map once and keep it live (changes flow back in
   // from this same popup's writes, or another device's sync).
   useEffect(() => {
@@ -1230,6 +1256,66 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
     },
     [t],
   );
+
+  // Cloud (Google Drive) prompt sync — prompts-only, merge semantics.
+  // The whole merge runs in the background (see gv.sync.*PromptsMerge) so a
+  // first-time Google account picker closing the popup can't abandon it.
+  const handlePromptCloudPull = useCallback(async () => {
+    setPromptMigrationBusy(true);
+    setPromptMigrationStatus(null);
+    try {
+      const response = (await chrome.runtime.sendMessage({
+        type: 'gv.sync.pullPromptsMerge',
+        payload: { interactive: true },
+      })) as { ok?: boolean; empty?: boolean; imported?: number; duplicates?: number } | undefined;
+
+      if (!response?.ok) {
+        setPromptMigrationStatus({ kind: 'err', text: t('promptCloudError') });
+        return;
+      }
+      if (response.empty) {
+        setPromptMigrationStatus({ kind: 'ok', text: t('promptCloudPullEmpty') });
+        return;
+      }
+
+      const processed = (response.imported ?? 0) + (response.duplicates ?? 0);
+      setPromptMigrationStatus({
+        kind: 'ok',
+        text: t('promptCloudPullSuccess').replace('{count}', String(processed)),
+      });
+    } catch (error) {
+      console.error('[Gemini Voyager] Failed to pull prompts from cloud:', error);
+      setPromptMigrationStatus({ kind: 'err', text: t('promptCloudError') });
+    } finally {
+      setPromptMigrationBusy(false);
+    }
+  }, [t]);
+
+  const handlePromptCloudPush = useCallback(async () => {
+    setPromptMigrationBusy(true);
+    setPromptMigrationStatus(null);
+    try {
+      const response = (await chrome.runtime.sendMessage({
+        type: 'gv.sync.pushPromptsMerge',
+        payload: { interactive: true },
+      })) as { ok?: boolean; count?: number } | undefined;
+
+      if (!response?.ok) {
+        setPromptMigrationStatus({ kind: 'err', text: t('promptCloudError') });
+        return;
+      }
+
+      setPromptMigrationStatus({
+        kind: 'ok',
+        text: t('promptCloudPushSuccess').replace('{count}', String(response.count ?? 0)),
+      });
+    } catch (error) {
+      console.error('[Gemini Voyager] Failed to push prompts to cloud:', error);
+      setPromptMigrationStatus({ kind: 'err', text: t('promptCloudError') });
+    } finally {
+      setPromptMigrationBusy(false);
+    }
+  }, [t]);
 
   // Copy folder structure for AI organization
   const handleCopyFolderStructureForAI = useCallback(async () => {
@@ -1864,10 +1950,30 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
     [originPatternsForDomain, refreshActiveTabContext, t],
   );
 
+  // A domain any catalog plugin can run on (ChatGPT / Claude are both
+  // Prompt-Manager quick sites AND plugin platforms).
+  const isPluginCapableDomain = useCallback(
+    (domain: string): boolean => {
+      const normalized = domain
+        .trim()
+        .toLowerCase()
+        .replace(/^www\./, '');
+      if (!normalized) return false;
+      const url = `https://${normalized}/`;
+      return pluginManifests.some((plugin) => matchesAnyPattern(url, plugin.matches));
+    },
+    [pluginManifests],
+  );
+
   const revokeCustomWebsitePermission = useCallback(
     async (domain: string) => {
       const originPatterns = originPatternsForDomain(domain);
       if (!originPatterns || !browser.permissions?.remove) return;
+
+      // Keep the host permission when a plugin can run on this domain —
+      // revoking it would tear down an enabled plugin's content script on a
+      // site shared with the Prompt Manager (e.g. chatgpt.com / claude.ai).
+      if (isPluginCapableDomain(domain)) return;
 
       try {
         await browser.permissions.remove({ origins: originPatterns });
@@ -1875,7 +1981,7 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
         console.warn('[Gemini Voyager] Failed to revoke permission for', domain, err);
       }
     },
-    [originPatternsForDomain],
+    [originPatternsForDomain, isPluginCapableDomain],
   );
 
   // Add website handler
@@ -2091,6 +2197,100 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
     content: React.ReactNode,
   ): React.ReactNode => (shouldShowSetting(sectionId, settingId) ? content : null);
 
+  // Prompt data import/export/cloud-sync panel. The prompt library is global
+  // (shared across Gemini, ChatGPT and Claude), so this is rendered both inside
+  // the native Prompt Manager section AND, standalone, on plugin sites where
+  // wrapSection() would otherwise hide the whole section.
+  const renderPromptDataMigration = (): React.ReactNode => (
+    <div className="space-y-2">
+      <div>
+        <Label className="text-sm font-medium">{t('promptDataMigration')}</Label>
+        <p className="text-muted-foreground mt-1 text-xs">{t('promptDataMigrationHint')}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={promptMigrationBusy}
+          onClick={() => {
+            void handlePromptExport();
+          }}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Download className="h-3.5 w-3.5" />
+            <span>{t('pm_export')}</span>
+          </span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={promptMigrationBusy}
+          onClick={() => promptImportInputRef.current?.click()}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Upload className="h-3.5 w-3.5" />
+            <span>{t('pm_import')}</span>
+          </span>
+        </Button>
+      </div>
+      {!isSafariBrowser && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={promptMigrationBusy}
+            onClick={() => {
+              void handlePromptCloudPull();
+            }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <MaterialGlyphIcon path={CLOUD_SYNC_PATH} className="h-3.5 w-3.5" />
+              <span>{t('promptCloudPull')}</span>
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={promptMigrationBusy}
+            onClick={() => {
+              void handlePromptCloudPush();
+            }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <MaterialGlyphIcon path={CLOUD_UPLOAD_PATH} className="h-3.5 w-3.5" />
+              <span>{t('promptCloudPush')}</span>
+            </span>
+          </Button>
+        </div>
+      )}
+      <input
+        ref={promptImportInputRef}
+        type="file"
+        aria-label={t('pm_import')}
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => {
+          void handlePromptImport(event);
+        }}
+      />
+      {promptMigrationStatus && (
+        <p
+          className={`text-xs ${
+            promptMigrationStatus.kind === 'ok'
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-destructive'
+          }`}
+        >
+          {promptMigrationStatus.text}
+        </p>
+      )}
+    </div>
+  );
+
   const moveSectionInOrder = (sectionId: PopupSectionId, direction: 'up' | 'down') => {
     setSectionOrder((prev) => {
       const idx = prev.indexOf(sectionId);
@@ -2281,9 +2481,58 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
         {/* Cloud Sync */}
         {!isSafariBrowser &&
           wrapSection('cloudSync', <CloudSyncSettings sourceTabId={sourceTabId} />)}
-        {/* Plugin ecosystem — pinned to the very top on third-party web pages,
-            scoped to plugins that target the active site. Hidden on native
-            Gemini / AI Studio, where the full settings surface belongs. */}
+        {/* Prompt Manager enable toggle for third-party plugin sites (ChatGPT /
+            Claude / …). Pinned ABOVE the plugin list so users who installed
+            Voyager for those platforms see the onboarding action first, instead
+            of scrolling past plugins to find it. */}
+        {isPluginSite && activeSiteDomain && (
+          <Card
+            style={{ order: -2 }}
+            className="border-primary/20 p-4 transition-all hover:shadow-md"
+          >
+            <CardContent className="p-0">
+              <div className="group flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <Label
+                    htmlFor="prompt-manager-site-enabled"
+                    className="group-hover:text-primary cursor-pointer text-sm font-medium transition-colors"
+                  >
+                    {t('enablePromptManagerOnSite').replace(
+                      '{site}',
+                      activeSiteLabel || activeSiteDomain,
+                    )}
+                  </Label>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {t('enablePromptManagerOnSiteHint')}
+                  </p>
+                </div>
+                <Switch
+                  id="prompt-manager-site-enabled"
+                  checked={customWebsites.includes(activeSiteDomain)}
+                  onChange={() => {
+                    void toggleQuickWebsite(
+                      activeSiteDomain,
+                      customWebsites.includes(activeSiteDomain),
+                    );
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {/* Prompt data import/export on plugin sites. The Prompt Manager section
+            (which carries these controls on native Gemini) is hidden here by
+            wrapSection, but the prompt library is global, so surface the same
+            panel standalone so ChatGPT / Claude users can still migrate prompts. */}
+        {isPluginSite && (
+          <Card style={{ order: -2 }} className="border-primary/20 p-4">
+            <CardContent className="p-0">{renderPromptDataMigration()}</CardContent>
+          </Card>
+        )}
+        {/* Plugin ecosystem — pinned to the top on third-party web pages (just
+            below the Prompt Manager toggle), scoped to plugins that target the
+            active site. Hidden on native Gemini / AI Studio, where the full
+            settings surface belongs. */}
         {isPluginSite && (
           <div style={{ order: -1 }}>
             <PluginManager
@@ -3453,67 +3702,7 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
                   />
                 </div>,
               )}
-              {renderSetting(
-                'promptManager',
-                'promptDataMigration',
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <Label className="text-sm font-medium">{t('promptDataMigration')}</Label>
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        {t('promptDataMigrationHint')}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={promptMigrationBusy}
-                        onClick={() => {
-                          void handlePromptExport();
-                        }}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <Download className="h-3.5 w-3.5" />
-                          <span>{t('pm_export')}</span>
-                        </span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={promptMigrationBusy}
-                        onClick={() => promptImportInputRef.current?.click()}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <Upload className="h-3.5 w-3.5" />
-                          <span>{t('pm_import')}</span>
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                  <input
-                    ref={promptImportInputRef}
-                    type="file"
-                    aria-label={t('pm_import')}
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(event) => {
-                      void handlePromptImport(event);
-                    }}
-                  />
-                  {promptMigrationStatus && (
-                    <p
-                      className={`text-xs ${
-                        promptMigrationStatus.kind === 'ok'
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-destructive'
-                      }`}
-                    >
-                      {promptMigrationStatus.text}
-                    </p>
-                  )}
-                </div>,
-              )}
+              {renderSetting('promptManager', 'promptDataMigration', renderPromptDataMigration())}
               {renderSetting(
                 'promptManager',
                 'customWebsites',
@@ -3540,11 +3729,16 @@ export default function Popup({ sourceTabId }: PopupProps = {}) {
                     </div>
                   )}
 
-                  {/* Quick-select buttons for popular websites. ChatGPT / Claude /
-                    Grok are intentionally absent: they're plugin platforms (managed
-                    via the Plugins section), not Prompt-Manager custom sites. */}
+                  {/* Quick-select buttons for popular websites. ChatGPT / Claude are
+                    ALSO plugin platforms, but the Prompt Manager is a separate
+                    feature — a plugin can't enable it — so keep the quick toggles
+                    here. The plugin-site exclusion in the background only blocks
+                    *auto*-adding these domains on a plugin permission grant; an
+                    explicit toggle here still enables the Prompt Manager on them. */}
                   <div className="mb-3 flex flex-wrap gap-1.5">
                     {[
+                      { domain: 'chatgpt.com', label: 'ChatGPT', Icon: IconChatGPT },
+                      { domain: 'claude.ai', label: 'Claude', Icon: IconClaude },
                       { domain: 'deepseek.com', label: 'DeepSeek', Icon: IconDeepSeek },
                       { domain: 'qwen.ai', label: 'Qwen', Icon: IconQwen },
                       { domain: 'kimi.com', label: 'Kimi', Icon: IconKimi },
