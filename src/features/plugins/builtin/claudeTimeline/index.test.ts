@@ -8,15 +8,22 @@ import {
   extractClaudeTurnHash,
   startClaudeTimeline,
   stopClaudeTimeline,
+  updateClaudeTimelineSettings,
 } from '.';
 
-const { addStarredMessage, getStarredMessagesForConversation, removeStarredMessage } = vi.hoisted(
-  () => ({
-    addStarredMessage: vi.fn().mockResolvedValue(undefined),
-    getStarredMessagesForConversation: vi.fn().mockResolvedValue([]),
-    removeStarredMessage: vi.fn().mockResolvedValue(undefined),
-  }),
-);
+const {
+  addStarredMessage,
+  getStarredMessagesForConversation,
+  removeStarredMessage,
+  setPluginSetting,
+  showTimelineStyleCoachmark,
+} = vi.hoisted(() => ({
+  addStarredMessage: vi.fn().mockResolvedValue(undefined),
+  getStarredMessagesForConversation: vi.fn().mockResolvedValue([]),
+  removeStarredMessage: vi.fn().mockResolvedValue(undefined),
+  setPluginSetting: vi.fn().mockResolvedValue(undefined),
+  showTimelineStyleCoachmark: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('@/utils/i18n', () => ({
   initI18n: vi.fn().mockResolvedValue(undefined),
@@ -30,6 +37,18 @@ vi.mock('@/pages/content/timeline/StarredMessagesService', () => ({
     removeStarredMessage,
   },
 }));
+
+vi.mock('@/features/plugins/storage/pluginState', () => ({ setPluginSetting }));
+
+vi.mock('@/pages/content/timeline/timelineStyleCoachmark', () => ({
+  showTimelineStyleCoachmark,
+}));
+
+interface CapturedTimelineCoachmarkOptions {
+  id: string;
+  enabled: boolean;
+  onStyleChange: (compact: boolean) => Promise<void>;
+}
 
 function createTurn(text: string): HTMLElement {
   const turn = document.createElement('div');
@@ -73,6 +92,8 @@ describe('Claude timeline', () => {
     getStarredMessagesForConversation.mockResolvedValue([]);
     addStarredMessage.mockClear();
     removeStarredMessage.mockClear();
+    setPluginSetting.mockClear();
+    showTimelineStyleCoachmark.mockClear();
     HTMLElement.prototype.scrollIntoView = vi.fn();
     window.scrollTo = vi.fn();
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 600 });
@@ -107,6 +128,58 @@ describe('Claude timeline', () => {
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
     expect(dots[0].classList.contains('active')).toBe(true);
     expect(dots[0].getAttribute('aria-current')).toBe('true');
+  });
+
+  it('shows the compact-view guide when the plugin starts for the first time', async () => {
+    addTurn('first prompt');
+
+    startClaudeTimeline({ compactView: false });
+    await flush();
+
+    expect(showTimelineStyleCoachmark).toHaveBeenCalledOnce();
+    const options = showTimelineStyleCoachmark.mock
+      .calls[0]![0] as CapturedTimelineCoachmarkOptions;
+    expect(options.id).toBe('claude-timeline-compact-style-intro-v1');
+    expect(options.enabled).toBe(false);
+
+    await options.onStyleChange(true);
+
+    expect(setPluginSetting).toHaveBeenCalledWith('voyager.claude-timeline', 'compactView', true);
+    expect(
+      document.querySelector('.gemini-timeline-bar')?.classList.contains('timeline-style-compact'),
+    ).toBe(true);
+  });
+
+  it('switches live between node and compact hover-panel views', async () => {
+    addTurn('first prompt');
+    addTurn('second prompt');
+    addTurn('third prompt');
+
+    startClaudeTimeline({ compactView: true });
+    await flush();
+
+    const bar = document.querySelector<HTMLElement>('.gemini-timeline-bar')!;
+    expect(bar.classList.contains('timeline-style-compact')).toBe(true);
+    expect(bar.querySelector('.timeline-track')?.getAttribute('aria-hidden')).toBe('true');
+    expect(
+      queryDots().map((dot) => dot.style.getPropertyValue('--timeline-compact-offset')),
+    ).toEqual(['-10px', '0px', '10px']);
+    expect(document.querySelector('.timeline-preview-panel-compact')).toBeTruthy();
+
+    bar.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(document.querySelector('.timeline-preview-panel')?.classList.contains('visible')).toBe(
+      true,
+    );
+
+    updateClaudeTimelineSettings({ compactView: false });
+
+    expect(bar.classList.contains('timeline-style-compact')).toBe(false);
+    expect(bar.querySelector('.timeline-track')?.hasAttribute('aria-hidden')).toBe(false);
+    expect(queryDots().every((dot) => dot.style.getPropertyValue('--n') !== '')).toBe(true);
+    expect(document.querySelector('.timeline-preview-panel-compact')).toBeNull();
+    expect(document.querySelector('.timeline-preview-panel')?.classList.contains('visible')).toBe(
+      false,
+    );
   });
 
   it('updates active dot from the current viewport', async () => {

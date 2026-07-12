@@ -1,8 +1,11 @@
-import { StorageKeys } from '@/core/types/common';
+import { StorageKeys, type TimelineStyle } from '@/core/types/common';
 import { hashString } from '@/core/utils/hash';
+import { setPluginSetting } from '@/features/plugins/storage/pluginState';
+import type { PluginSettings } from '@/features/plugins/types';
 import { StarredMessagesService } from '@/pages/content/timeline/StarredMessagesService';
 import { TimelinePreviewPanel } from '@/pages/content/timeline/TimelinePreviewPanel';
 import type { StarredMessage } from '@/pages/content/timeline/starredTypes';
+import { showTimelineStyleCoachmark } from '@/pages/content/timeline/timelineStyleCoachmark';
 import type { PreviewMarkerData } from '@/pages/content/timeline/types';
 import { initI18n } from '@/utils/i18n';
 
@@ -17,6 +20,9 @@ const TOOLTIP_DELAY_MS = 150;
 const PENDING_NAVIGATION_TIMEOUT_MS = 8000;
 const PENDING_NAVIGATION_HOP_MS = 200;
 const LONG_JUMP_VIEWPORTS = 3;
+const CLAUDE_TIMELINE_PLUGIN_ID = 'voyager.claude-timeline';
+const CLAUDE_TIMELINE_COACHMARK_ID = 'claude-timeline-compact-style-intro-v1';
+const COMPACT_VIEW_SETTING = 'compactView';
 
 type Dot = HTMLButtonElement & {
   dataset: DOMStringMap & { targetTurnId?: string; markerIndex?: string };
@@ -81,6 +87,7 @@ class ClaudeTimeline {
   private longPressDot: Dot | null = null;
   private suppressClickUntil = 0;
   private activeTurnId: string | null = null;
+  private timelineStyle: TimelineStyle = 'dots';
   private navigationActiveLockUntil = 0;
   private pendingNavigationId: string | null = null;
   private pendingNavigationUntil = 0;
@@ -95,7 +102,8 @@ class ClaudeTimeline {
     | null = null;
   private destroyed = false;
 
-  async start(): Promise<void> {
+  async start(settings: PluginSettings = {}): Promise<void> {
+    this.updateSettings(settings);
     await initI18n().catch(() => {});
     if (this.destroyed) return;
     this.ensureUi();
@@ -104,6 +112,28 @@ class ClaudeTimeline {
     this.observe();
     window.addEventListener('hashchange', this.handleHash);
     window.addEventListener('resize', this.handleResize);
+    this.maybeShowStyleCoachmark();
+  }
+
+  updateSettings(settings: PluginSettings): void {
+    const nextStyle: TimelineStyle = settings[COMPACT_VIEW_SETTING] === true ? 'compact' : 'dots';
+    const changed = this.timelineStyle !== nextStyle;
+    this.timelineStyle = nextStyle;
+    this.applyTimelineStyle();
+    if (changed && this.markers.length > 0) this.renderDots();
+  }
+
+  private maybeShowStyleCoachmark(): void {
+    if (this.destroyed || this.timelineStyle === 'compact') return;
+    void showTimelineStyleCoachmark({
+      id: CLAUDE_TIMELINE_COACHMARK_ID,
+      enabled: false,
+      onStyleChange: async (compact) => {
+        if (this.destroyed) return;
+        this.updateSettings({ [COMPACT_VIEW_SETTING]: compact });
+        await setPluginSetting(CLAUDE_TIMELINE_PLUGIN_ID, COMPACT_VIEW_SETTING, compact);
+      },
+    });
   }
 
   destroy(): void {
@@ -222,6 +252,21 @@ class ClaudeTimeline {
       this.previewPanel = new TimelinePreviewPanel(bar);
       this.previewPanel.init((turnId) => this.navigateTo(turnId));
     }
+    this.applyTimelineStyle();
+  }
+
+  private applyTimelineStyle(): void {
+    if (!this.bar) return;
+    const compact = this.timelineStyle === 'compact';
+    this.bar.classList.toggle('timeline-style-compact', compact);
+    const track = this.trackContent?.parentElement;
+    if (compact) {
+      track?.setAttribute('aria-hidden', 'true');
+      this.hideTooltip();
+    } else {
+      track?.removeAttribute('aria-hidden');
+    }
+    this.previewPanel?.setCompactMode(compact);
   }
 
   private scheduleRefresh(): void {
@@ -377,13 +422,18 @@ class ClaudeTimeline {
     if (!this.trackContent) return;
     this.trackContent.textContent = '';
     const last = Math.max(1, this.markers.length - 1);
+    const compactOffsets = this.buildCompactMarkerOffsets();
     this.markers.forEach((marker, index) => {
       const dot = document.createElement('button') as Dot;
       dot.className = 'timeline-dot';
       dot.type = 'button';
       dot.dataset.targetTurnId = marker.id;
       dot.dataset.markerIndex = String(index);
-      dot.style.setProperty('--n', String(this.markers.length === 1 ? 0.5 : index / last));
+      if (this.timelineStyle === 'compact') {
+        dot.style.setProperty('--timeline-compact-offset', `${compactOffsets[index] ?? 0}px`);
+      } else {
+        dot.style.setProperty('--n', String(this.markers.length === 1 ? 0.5 : index / last));
+      }
       dot.setAttribute('aria-label', marker.summary || `Message ${index + 1}`);
       dot.setAttribute('aria-pressed', marker.starred ? 'true' : 'false');
       dot.setAttribute('aria-current', marker.id === this.activeTurnId ? 'true' : 'false');
@@ -409,6 +459,14 @@ class ClaudeTimeline {
       marker.dotElement = dot;
       this.trackContent!.appendChild(dot);
     });
+  }
+
+  private buildCompactMarkerOffsets(): number[] {
+    const count = this.markers.length;
+    if (count === 0) return [];
+    const gap = count > 1 ? Math.min(10, 240 / (count - 1)) : 0;
+    const center = (count - 1) / 2;
+    return this.markers.map((_, index) => (index - center) * gap);
   }
 
   private startLongPress(dot: Dot): void {
@@ -889,10 +947,17 @@ class ClaudeTimeline {
 
 let instance: ClaudeTimeline | null = null;
 
-export function startClaudeTimeline(): void {
-  if (instance) return;
+export function startClaudeTimeline(settings: PluginSettings = {}): void {
+  if (instance) {
+    instance.updateSettings(settings);
+    return;
+  }
   instance = new ClaudeTimeline();
-  void instance.start();
+  void instance.start(settings);
+}
+
+export function updateClaudeTimelineSettings(settings: PluginSettings): void {
+  instance?.updateSettings(settings);
 }
 
 export function stopClaudeTimeline(): void {

@@ -8,7 +8,11 @@ import {
 import { isGeminiEnterpriseEnvironment } from '@/core/utils/gemini';
 import { startFormulaCopy, stopFormulaCopy } from '@/features/formulaCopy';
 import { startPluginHost } from '@/features/plugins';
-import { startClaudeTimeline, stopClaudeTimeline } from '@/features/plugins/builtin/claudeTimeline';
+import {
+  startClaudeTimeline,
+  stopClaudeTimeline,
+  updateClaudeTimelineSettings,
+} from '@/features/plugins/builtin/claudeTimeline';
 import { startClaudeUsage, stopClaudeUsage } from '@/features/plugins/builtin/claudeUsage';
 import { registerNativeHandler } from '@/features/plugins/runtime/nativeHandlers';
 import { resolvePluginPlatformId } from '@/features/plugins/sites/registry';
@@ -54,6 +58,7 @@ import { startSendBehavior } from './sendBehavior/index';
 import { startSidebarAutoHide } from './sidebarAutoHide';
 import { startSidebarWidthAdjuster } from './sidebarWidth';
 import { startTimeline } from './timeline/index';
+import { maybeShowTimelineStyleCoachmark } from './timeline/timelineStyleCoachmark';
 import { startUsageStatus } from './usageStatus/index';
 import { maybeShowUsageCoachmark } from './usageStatus/usageCoachmark';
 import { startUserLatex } from './userLatex/index';
@@ -116,7 +121,11 @@ async function isForkFeatureEnabled(): Promise<boolean> {
 
 function showOnboardingCoachmarksWhenChangelogIsIdle(): void {
   if (document.querySelector('.gv-changelog-overlay')) return;
-  void runCoachmarkSequence([maybeShowUsageCoachmark, maybeShowFolderSearchCoachmark]);
+  void runCoachmarkSequence([
+    maybeShowTimelineStyleCoachmark,
+    maybeShowUsageCoachmark,
+    maybeShowFolderSearchCoachmark,
+  ]);
 }
 
 /**
@@ -471,6 +480,7 @@ function handleVisibilityChange(): void {
     });
     registerNativeHandler('voyager.claude-timeline', {
       start: startClaudeTimeline,
+      updateSettings: updateClaudeTimelineSettings,
       stop: stopClaudeTimeline,
     });
     registerNativeHandler('voyager.claude-usage', {
