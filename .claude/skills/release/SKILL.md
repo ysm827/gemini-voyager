@@ -35,6 +35,16 @@ Do these before touching the version. Bail out if any fails and surface the fail
 - Confirm branch is `main` (or whatever the user explicitly asks). If not, stop and ask.
 - `git status` should show no unrelated modified files. Version files from a previous aborted bump (`package.json`, `manifest.json`, `manifest.dev.json`) are OK — they'll be overwritten.
 
+**Release scope — derive from the last RELEASED tag, never from unpushed commits.** This is the authoritative commit range for the changelog (Step 3) AND the release body (Step 6). Compute it once, here:
+
+```bash
+PREV_TAG=$(git describe --tags --abbrev=0)   # last released version, e.g. v1.5.5
+git log ${PREV_TAG}..HEAD --format='%h %s' --no-merges
+git rev-list --count ${PREV_TAG}..HEAD
+```
+
+⚠️ **Do NOT scope the release from `git log origin/main..HEAD` or "unpushed commits".** Commits that were pushed to `main` after the last release but never shipped (a common backlog) are already on the remote, so they don't appear as "unpushed" — yet they ARE part of this release. Scoping from unpushed commits silently drops them from the changelog and release body. Always diff against `PREV_TAG`. If the count is much larger than the handful you personally just added, that's expected — read every entry, don't assume the release is only your recent work.
+
 **Open-issue triage** — read `gh issue list --state open --limit 100 --json number,title,labels,createdAt,updatedAt,author`. Scan for:
 - Recent (non-stale) bug reports that would embarrass us if we shipped without them fixed.
 - Issues with the `important` label that haven't been addressed.
@@ -82,6 +92,12 @@ grep -E "MARKETING_VERSION|CURRENT_PROJECT_VERSION" "$PBX" | sort -u   # expect 
 ## Step 3 — Changelog (required, all 10 locales)
 
 Write `src/pages/content/changelog/notes/{VERSION}.md` — shown to end users in-product. See **references/changelog.md** for the 10-locale template, per-language section headers, commit-filtering rules, and style guide.
+
+**Required first — cover EVERY commit in the release range with subagents before writing a single line.** Take the `PREV_TAG..HEAD` list from Step 1 (the full range, e.g. all 18 commits — NOT just the handful you personally added) and fan out subagents to read them: one subagent per commit, or per small group, each returning "what user-facing change does this ship, and does the code actually implement it." Then build the changelog from their combined findings. This is a hard gate for two reasons:
+- **Coverage** — it structurally prevents dropping commits that were pushed-but-unreleased. If you write the changelog from memory or from "the commits I just made," you WILL miss the backlog (this exact bug shipped a changelog covering 5 of 18 commits in v1.5.6).
+- **Correctness** — each subagent confirms the feature is real and works, so the notes describe what actually ships, not what a commit message claimed.
+
+Only after every commit in the range has been read and accounted for do you write the notes.
 
 Two things that are easy to miss (full rules in the reference):
 - **Write Chinese (`zh`) first**, then render English from it, then the other 8 from English. `en` must still be complete (it's the viewer's fallback locale). Don't reorder the on-disk `<!-- lang:xx -->` sections — they stay en-first.
